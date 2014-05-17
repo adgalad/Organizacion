@@ -3,10 +3,10 @@
 	.data
 	
 FAT:		.space  256  # 256 bytes reservados para la Tabla FAT
-directorio:	.space  2304 # 256 casillas de 9 bytes (8 para nombre y uno para cluster de inicio)
+directorio:	.space  3584 # 256 casillas de 14 bytes (13 para nombre y uno para cluster de inicio)
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
 buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
-
+bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
 
 error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
@@ -39,39 +39,47 @@ textSalir:	.asciiz "salir"
 main:		imprime(prompt)
 
 		jal  input
+		move $a0, $v0
 		
-		add  $s0, $v0, $0
-		add  $s1, $v1, $0
+		jal  split
+		add  $s0, $v0, $0	# $s0  almacena el comando recibido por prompt
+		add  $s1, $v1, $0	# $s1 almacena el argumento recibido por prompt
 	
-		add  $a2, $s1, $0
-
+		add  $a2, $s1, $0			
+		
 		la   $a1, textCrear
-		add  $a0, $s0, $0
+		move $a0, $s0
 		jal  compararString
-		beq  $v0, 1, crear  
+		beqz $v0, ifImprimir
+		move $a0, $s1		
+		jal  crear
+		b    main
 		
-		la   $a1, textImprimir
-		add  $a0, $s0, $0
+ifImprimir:	la   $a1, textImprimir
+		move $a0, $s0
 		jal  compararString
-		beq  $v0, 1, imprimir  
+		beqz $v0, ifCopiar  
+		move $a0, $s1
+		jal  imprimir
+		b    main
 		
-		la   $a1, textCopiar
-		add  $a0, $s0, $0
+ifCopiar:	la   $a1, textCopiar
+		move $a0, $s0
 		jal  compararString
-		beq  $v0, 1, copiar 
+		beqz $v0, ifRen 
 		
-		la   $a1, textRenombrar
-		add  $a0, $s0, $0
+ifRen:		la   $a1, textRenombrar
+		move  $a0, $s0
 		jal  compararString
-		beq  $v0, 1, ren 
+		beqz $v0, ifSizeOf 
 		
-		la   $a1, textSizeOf
-		add  $a0, $s0, $0
+ifSizeOf:	la   $a1, textSizeOf
+		move  $a0, $s0
 		jal  compararString
-		beq  $v0, 1, sizeof 
+		beqz $v0, ifSalir 
 		
-		la   $a1, textSalir
-		add  $a0, $s0, $0
+ifSalir:	la   $a1, textSalir
+		move  $a0, $s0
 		jal  compararString
 		beq  $v0, 1, salirMain 
 		
@@ -83,8 +91,6 @@ main:		imprime(prompt)
 salirMain:      li  $v0, 10
 		syscall
 	
-
-
 
 # Funcion que compara dos string, que entran como argumentos a0,a1 
 # devuelve en v0, true o false en caso de ser iguales o no
@@ -110,14 +116,19 @@ input:		la   $v0 , 8
 		li   $a1 , 40
 		syscall
 		
-		la   $v0, 0($a0)		
-		la   $v1, 0($a0)
+		la   $v0, 0($a0)
+		jr   $ra
 		
-split:		lb   $t0, 0($v1)
-		beq  $t0, 32, salirInput
+# Entrada: $a0 ( parametro con la direccion de la palabra )
+# Salida: $v0, $v1 ( parametro con la direccion de las palabras )	
+split:		move $v0, $a0
+		move $v1, $a0
+		
+loopSplit:      lb   $t0, 0($v1)
+		beq  $t0, ' ', salirInput
 		beq  $t0, '\n', salirInput
 		addi $v1, $v1, 1
-		b    split
+		b    loopSplit
 		
 salirInput:	add  $t0, $0, $0
 		sb   $t0, 0($v1) 
@@ -126,31 +137,37 @@ salirInput:	add  $t0, $0, $0
 
 
 
+# Entrada: $a0 ( direccion con el nombre del archivo )
+# Salida:  nada
 
-# Comandos
-crear:		li   $v0, 13
+crear:		move $v1, $s1
+		jal split
+		li   $v0, 13
 		move $a0, $s1
 		li   $a1, 0
 		li   $a2, 0
 		syscall
 		
 		move $a0, $v0
-		li   $v0, 13
-		la   $a1, buffer
+		li   $v0, 14
+		la   $a1, bufferIO
 		li   $a2, 1025
 		syscall
 		
-		imprime(buffer)
+		imprime(bufferIO)
 		
-		li $v0, 16
+		li   $v0, 16
 		syscall
 		
-		b main
+		jr   $ra
 
-imprimir: 	li $v0 4
-		la $a0, 0($s1)
+# Entrada: $a0 ( direccion con el nombre del archivo )
+# Salida:  nada
+imprimir: 	li   $v0 4
+		la   $a0, 0($s1)
 		syscall
-		b main
+		
+		jr   $ra
 
 copiar:		b main
 
