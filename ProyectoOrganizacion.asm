@@ -3,10 +3,11 @@
 	.data
 	
 FAT:		.space  256  # 256 bytes reservados para la Tabla FAT
-directorio:	.space  2304 # 256 casillas de 9 bytes (8 para nombre y uno para cluster de inicio)
+directorio:	.space  3328 # 256 casillas de 14 bytes (12 para nombre, uno para un caracter null y uno para cluster de inicio)
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
 buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
+
 
 error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
@@ -33,8 +34,11 @@ textSalir:	.asciiz "salir"
 	syscall
 .end_macro
 
-
-
+# inicializo la casilla 0 de FAT en 255 ( el total de clusters libres )
+		li $t0, 255
+		la $t1, FAT
+		sw $t0, 0($t1)
+		
 		imprime(bienvenida)
 main:		imprime(prompt)
 
@@ -127,7 +131,10 @@ salirInput:	add  $t0, $0, $0
 
 
 
-# Comandos	
+# Comandos
+
+# Entrada:
+# Salida:	
 crear:		move $v1, $s1
 		jal split
 		li   $v0, 13
@@ -141,12 +148,25 @@ crear:		move $v1, $s1
 		la   $a1, bufferIO
 		li   $a2, 1025
 		syscall
-		
-		imprime(bufferIO)
-		
+				
 		li $v0, 16
 		syscall
+
+		add $t3, $0, $0
+		la $t0, bufferIO
 		
+contandopal:	addi $t0, $t0, 1
+		lb $t1, 0($t0)
+		beqz $t1, espaciolibre
+		addi $t3, $t3, 1
+		b contandopal		
+		 
+espaciolibre:	la $t4, FAT
+		lw $t4, 0($t4)
+		add $t5, $0, $0
+		addi $t5, $t5, 4
+		mul $t4, $t4, $t5
+		bgt $t4, $t5, 
 		b main
 
 imprimir: 	li $v0 4
@@ -158,6 +178,10 @@ copiar:		b main
 
 ren:		b main
 
-sizeof:		b main
+#Entrada: $s1 ( nombre del archivo )
+#Salida:   ( Unidades de cluster ) y ( Unidades de Bytes ) 
+sizeof:		move $v1, $s1
+		jal split
+		
 
 
