@@ -69,7 +69,7 @@ ifCopiar:	la   $a1, textCopiar
 		beqz $v0, ifRen 
 		
 ifRen:		la   $a1, textRenombrar
-		move  $a0, $s0
+		move $a0, $s0
 		jal  compararString
 		beqz $v0, ifSizeOf 
 		
@@ -79,7 +79,7 @@ ifSizeOf:	la   $a1, textSizeOf
 		beqz $v0, ifSalir 
 		
 ifSalir:	la   $a1, textSalir
-		move  $a0, $s0
+		move $a0, $s0
 		jal  compararString
 		beq  $v0, 1, salirMain 
 		
