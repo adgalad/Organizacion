@@ -13,6 +13,7 @@ error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
 error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
 error4:		.asciiz "Error: Comando invalido\n"
+error5:		.asciiz "Error: No hay espacio suficiente"
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -149,7 +150,7 @@ salirInput:	add  $t0, $0, $0
 # Entrada:
 # Salida:	
 
-crear:		move $v1, $s1
+crear:		move $a0, $s1
 		jal split
 		li   $v0, 13
 		move $a0, $s1
@@ -180,7 +181,7 @@ espaciolibre:	la $t4, FAT
 		add $t5, $0, $0
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
-		bgt $t4, $t5, 
+		bgt $t4, $t5, error5  
 		jr   $ra
 
 
