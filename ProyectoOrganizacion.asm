@@ -7,7 +7,6 @@ directorio:	.space  2304 # 256 casillas de 9 bytes (8 para nombre y uno para clu
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
 buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
 
-
 error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
 error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
@@ -39,12 +38,12 @@ textSalir:	.asciiz "salir"
 main:		imprime(prompt)
 
 		jal  input
-		
-		add  $s0, $v0, $0
-		add  $s1, $v1, $0
-	
-		add  $a2, $s1, $0
 
+		add  $s0, $v0, $0	# $s0  almacena el comando recibido por prompt
+		add  $s1, $v1, $0	# $s1 almacena el argumento recibido por prompt
+	
+		add  $a2, $s1, $0			
+		
 		la   $a1, textCrear
 		add  $a0, $s0, $0
 		jal  compararString
@@ -84,8 +83,6 @@ salirMain:      li  $v0, 10
 		syscall
 	
 
-
-
 # Funcion que compara dos string, que entran como argumentos a0,a1 
 # devuelve en v0, true o false en caso de ser iguales o no
 compararString: lb   $t0, 0($a0)
@@ -113,6 +110,8 @@ input:		la   $v0 , 8
 		la   $v0, 0($a0)		
 		la   $v1, 0($a0)
 		
+# Entrada: $v1 ( parametro con la direccion de la palabra )
+# Salida: $v1 ( parametro con la direccion de la palabra )	
 split:		lb   $t0, 0($v1)
 		beq  $t0, 32, salirInput
 		beq  $t0, '\n', salirInput
@@ -127,15 +126,16 @@ salirInput:	add  $t0, $0, $0
 
 
 
-# Comandos
-crear:		li   $v0, 13
+# Comandos	
+crear:		jalr split
+		li   $v0, 13
 		move $a0, $s1
 		li   $a1, 0
 		li   $a2, 0
 		syscall
 		
 		move $a0, $v0
-		li   $v0, 13
+		li   $v0, 14
 		la   $a1, buffer
 		li   $a2, 1025
 		syscall
