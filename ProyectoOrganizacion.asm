@@ -150,8 +150,16 @@ salirInput:	add  $t0, $0, $0
 # Entrada:
 # Salida:	
 
-crear:		move $a0, $s1
+crear:		addi $sp, $sp, -8
+		sw $fp, 8($sp)
+		sw $ra, 4($sp)
+		addi $fp, $sp, 8
+		move $a0, $s1
 		jal split
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 8
+		
 		li   $v0, 13
 		move $a0, $s1
 		li   $a1, 0
@@ -167,21 +175,51 @@ crear:		move $a0, $s1
 		li $v0, 16
 		syscall
 
-		add $t3, $0, $0
-		la $t0, bufferIO
+
+		add $t3, $0, $0		# Chequeo si existe el nombre en el directorio
+		add $t5, $0, $0
+		addi $t5, $t5, 256
+		la $t0, directorio
+		move $a1, $s1
 		
+cheqdirect:	la $a0, 0($t0) 		
+		addi $sp, $sp, -12
+		sw $fp, 12($sp)
+		sw $ra, 8($sp)
+		sw $t0, 4($sp)
+		addi $fp, $sp, 12
+		jal compararString
+		lw $t0, -8($fp)
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 12
+		addi $t3, $t3, 1
+		addi $t0, $t0, 14
+		bgtz $v0, error2
+		blt $t3, $t5, cheqdirect
+		
+		
+verespacio:	add $t3, $0, $0
+		la $t0, bufferIO
 contandopal:	addi $t0, $t0, 1
 		lb $t1, 0($t0)
 		beqz $t1, espaciolibre
 		addi $t3, $t3, 1
-		b contandopal		
+		b contandopal
+	
 		 
 espaciolibre:	la $t4, FAT
 		lw $t4, 0($t4)
 		add $t5, $0, $0
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
-		bgt $t4, $t5, error5  
+		bgt $t3, $t4, error5
+		
+		
+		la $t4, FAT
+clusterlibre:	la $t1, 1($t4)
+		 
+		    
 		jr   $ra
 
 
