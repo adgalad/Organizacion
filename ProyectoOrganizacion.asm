@@ -6,6 +6,7 @@ FAT:		.space  256  # 256 bytes reservados para la Tabla FAT
 directorio:	.space  2304 # 256 casillas de 9 bytes (8 para nombre y uno para cluster de inicio)
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
 buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
+bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
 
 error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
@@ -137,11 +138,11 @@ crear:		move $v1, $s1
 		
 		move $a0, $v0
 		li   $v0, 14
-		la   $a1, buffer
+		la   $a1, bufferIO
 		li   $a2, 1025
 		syscall
 		
-		imprime(buffer)
+		imprime(bufferIO)
 		
 		li $v0, 16
 		syscall
