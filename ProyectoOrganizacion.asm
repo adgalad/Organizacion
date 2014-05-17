@@ -3,19 +3,27 @@
 	.data
 	
 FAT:		.space  256  # 256 bytes reservados para la Tabla FAT
-Directorio:	.space  2304 # 256 casillas de 9 bytes (8 para nombre y uno para cluster de inicio)
-DiscoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
-Buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
+directorio:	.space  2304 # 256 casillas de 9 bytes (8 para nombre y uno para cluster de inicio)
+discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
+buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
 
 
-Error1:		.asciiz "Error: El Disco esta lleno\n"
-Error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
-Error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
+error1:		.asciiz "Error: El Disco esta lleno\n"
+error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
+error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
+error4:		.asciiz "Error: Comando invalido\n"
 
-Bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
-Prompt:		.asciiz ">> "
+bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
+prompt:		.asciiz ">> "
 
-text:		.asciiz "imprimir"
+textCrear:	.asciiz "crear"
+textCopiar:	.asciiz "copiar"
+textRenombrar:	.asciiz "ren"
+textSizeOf:	.asciiz "sizeof"
+textImprimir:	.asciiz "imprimir"
+textSalir:	.asciiz "salir"
+	
+	
 	.text
 
 # macro para imprimir un string almacenado en memoria
@@ -27,20 +35,48 @@ text:		.asciiz "imprimir"
 
 
 
-		imprime(Bienvenida)
-Main:		imprime(Prompt)
+		imprime(bienvenida)
+main:		imprime(prompt)
 
 		jal  input
 		
 		add  $s0, $v0, $0
 		add  $s1, $v1, $0
-		
-		add  $a0, $v0, $0
-		la   $a1, text
-		add  $a2, $v1, $0
+	
+		add  $a2, $s1, $0
+
+		la   $a1, textCrear
+		add  $a0, $s0, $0
 		jal  compararString
-		beqz $v0, salirMain 
-		jal  imprimir
+		beq  $v0, 1, crear  
+		
+		la   $a1, textImprimir
+		add  $a0, $s0, $0
+		jal  compararString
+		beq  $v0, 1, imprimir  
+		
+		la   $a1, textCopiar
+		add  $a0, $s0, $0
+		jal  compararString
+		beq  $v0, 1, copiar 
+		
+		la   $a1, textRenombrar
+		add  $a0, $s0, $0
+		jal  compararString
+		beq  $v0, 1, ren 
+		
+		la   $a1, textSizeOf
+		add  $a0, $s0, $0
+		jal  compararString
+		beq  $v0, 1, sizeof 
+		
+		la   $a1, textSalir
+		add  $a0, $s0, $0
+		jal  compararString
+		beq  $v0, 1, salirMain 
+		
+		imprime(error4)
+		b main
 		
 	
 		
@@ -51,33 +87,38 @@ salirMain:      li  $v0, 10
 
 
 # Funcion que compara dos string, que entran como argumentos a0,a1 
-# devuelve true o false en caso de ser iguales o no
+# devuelve en v0, true o false en caso de ser iguales o no
 compararString: lb   $t0, 0($a0)
 		lb   $t1, 0($a1)
 		bne  $t0, $t1, noIguales
-		beq  $t0, '\0', iguales
+		beqz $t0, iguales
 		addi $a0, $a0, 1
 		addi $a1, $a1, 1
-		j    compararString
-iguales:	addi $v0, $0, 1
+		b    compararString
+		
+iguales:	li   $v0, 1
 		jr   $ra
-noIguales:	add  $v0, $0, $0
+		
+noIguales:	li   $v0, 0
 		jr   $ra
 		
 
 # Funcion que lee por consola un comando y el string argumento
 # y devuelve la direccion de ambos strings en los registros v0,v1 (split)				
 input:		la   $v0 , 8
-		la   $a0 , Buffer
+		la   $a0 , buffer
 		li   $a1 , 40
 		syscall
 		
 		la   $v0, 0($a0)		
 		la   $v1, 0($a0)
+		
 split:		lb   $t0, 0($v1)
 		beq  $t0, 32, salirInput
+		beq  $t0, '\n', salirInput
 		addi $v1, $v1, 1
 		b    split
+		
 salirInput:	add  $t0, $0, $0
 		sb   $t0, 0($v1) 
 		addi $v1, $v1, 1
@@ -87,19 +128,34 @@ salirInput:	add  $t0, $0, $0
 
 
 # Comandos
-crear:
-
-imprimir:	li $v0, 4
-		la $a0, 0($s1)
+crear:		li   $v0, 13
+		move $a0, $s1
+		li   $a1, 0
+		li   $a2, 0
 		syscall
 		
-		jr $ra
+		move $a0, $v0
+		li   $v0, 13
+		la   $a1, buffer
+		li   $a2, 1025
+		syscall
 		
+		imprime(buffer)
+		
+		li $v0, 16
+		syscall
+		
+		b main
 
-copiar:
+imprimir: 	li $v0 4
+		la $a0, 0($s1)
+		syscall
+		b main
 
-ren:
+copiar:		b main
 
-sizeof:
+ren:		b main
+
+sizeof:		b main
 
 
