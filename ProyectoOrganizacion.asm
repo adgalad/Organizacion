@@ -127,7 +127,8 @@ salirInput:	add  $t0, $0, $0
 
 
 # Comandos	
-crear:		jalr split
+crear:		move $v1, $s1
+		jal split
 		li   $v0, 13
 		move $a0, $s1
 		li   $a1, 0
