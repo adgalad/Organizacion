@@ -144,12 +144,6 @@ salirInput:	add  $t0, $0, $0
 
 # Entrada: $a0 ( direccion con el nombre del archivo )
 # Salida:  nada
-
-# Comandos
-
-# Entrada:
-# Salida:	
-
 crear:		move $a0, $s1
 		jal split
 		li   $v0, 13
@@ -187,15 +181,61 @@ espaciolibre:	la $t4, FAT
 
 # Entrada: $a0 ( direccion con el nombre del archivo )
 # Salida:  nada
-imprimir: 	li   $v0 4
-		la   $a0, 0($s1)
-		syscall
+imprimir: 	li   $t0, 0
+		la   $t1, directorio
+
+		# En loopExisteImp:		
+		# $t0 iterador
+		# $t1 direccion del directorio
+		# $a0 direccion con nombre del archivo
 		
+loopExisteImp:	jal  compararString
+		beq  $v0, 1 , existeImpri
+		beq  $t0, 255, noExisteImpri
+		addi $t1, $t1, 14			# flag
+		addi $t0, $t0, 1
+		b loopExisteImp
+
+existeImpri:    la   $t0 bufferIO
+		addi $t1, $t1, 13 			# flag
+		
+		# En loopImpri:
+		# $t0 variable para moverse y escribir el bufferIO
+		# $t1 direccion con la FAT
+		# $t2 direccion del disco duro
+		# $t3 variable para moverse en el Disco y la FAT
+		
+loopImpri:	la   $t2 discoDuro	
+		lb   $t3, 0($t1)
+		la   $t1, FAT
+		add  $t1, $t1, $t3
+		lb   $t3, 0($t1) 
+		beqz $t3, salirImpri
+		sll  $t3, $t3, 2
+		add  $t2, $t2, $t3
+		lw   $t3, 0($t2)
+		sw   $t3, 0($t0)
+		addi $t0, 4
+		b loopImpri
+
+salirImpri:	imprime(bufferIO)
+		jr $ra		
+
+noExisteImpri:  imprime(error3)
 		jr   $ra
 
+
+
+
+# Entrada: 
+# Salida: 
 copiar:		b main
 
+
+# Entrada: 
+# Salida: 
 ren:		b main
+
 
 #Entrada: $s1 ( nombre del archivo )
 #Salida:   ( Unidades de cluster ) y ( Unidades de Bytes ) 
