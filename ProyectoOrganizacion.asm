@@ -259,7 +259,7 @@ loopImpri:	la   $t2 discoDuro
 		add  $t2, $t2, $t3
 		lw   $t3, 0($t2)
 		sw   $t3, 0($t0)
-		addi $t0, 4
+		addi $t0, $t0, 4
 		b loopImpri
 
 salirImpri:	imprime(bufferIO)
