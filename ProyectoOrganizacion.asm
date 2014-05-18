@@ -14,6 +14,7 @@ error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
 error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
 error4:		.asciiz "Error: Comando invalido\n"
 error5:		.asciiz "Error: No hay espacio suficiente"
+error6:		.asciiz "Error: El nombre del archivo es muy largo"
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -36,9 +37,9 @@ textSalir:	.asciiz "salir"
 .end_macro
 
 # inicializo la casilla 0 de FAT en 255 ( el total de clusters libres )
-		li $t0, 255
+		addi $t0, $0, 255
 		la $t1, FAT
-		sw $t0, 0($t1)
+		sb  $t0, 0($t1)
 		
 		imprime(bienvenida)
 main:		imprime(prompt)
@@ -174,6 +175,20 @@ crear:		addi $sp, $sp, -8
 				
 		li $v0, 16
 		syscall
+		
+		add $t3, $0, $0
+		add $t5, $0, $0
+		add $t0, $0, $0
+		move $t3, $s1
+		
+tamanonombre:	lb $t5, 0($t3)		# Verifico si el nombre del archivo no excede los 12 caracteres
+		beqz $t5, cheqnombre
+		addi $t0, $t0, 1
+		addi $t3, $t3, 1
+		b tamanonombre
+		
+cheqnombre:	addi $t5, $t5, 12
+		bgt $t0, $t5, error6		
 
 
 		add $t3, $0, $0		# Chequeo si existe el nombre en el directorio
@@ -199,8 +214,9 @@ cheqdirect:	la $a0, 0($t0)
 		blt $t3, $t5, cheqdirect
 		
 		
-verespacio:	add $t3, $0, $0
+		add $t3, $0, $0		# Cuento el numero de bytes a guardar
 		la $t0, bufferIO
+		
 contandopal:	addi $t0, $t0, 1
 		lb $t1, 0($t0)
 		beqz $t1, espaciolibre
@@ -208,20 +224,79 @@ contandopal:	addi $t0, $t0, 1
 		b contandopal
 	
 		 
-espaciolibre:	la $t4, FAT
-		lw $t4, 0($t4)
+espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
+		la $t4, FAT
+		lw  $t4, 0($t4)
 		add $t5, $0, $0
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
 		bgt $t3, $t4, error5
 		
 		
-		la $t4, FAT
-clusterlibre:	lw $t1, 1($t4)
-		beqz $t1, etiqueta	
-		b clusterlibre 
-		    
-		jr   $ra
+		la $t0, bufferIO
+		la $t4, FAT		# El FAT 0, esta reservado para uso del SMD
+		la $t5, discoDuro		
+		add $t2, $0, $0
+		
+clusterlibres1:	move $t9, $t4		# Encuentro Clusters libres para almacenar
+		addi $t4, $t4, 1			
+clusterlibres:	lb $t1, 0($t4)
+		beqz $t1, clusterlibre
+		addi $t4, $t4, 1	
+		b clusterlibres
+		
+clusterlibre:	bnez $t2, marcandofat	# Calculo la biyeccion entre el indice de FAT y el HDD
+clusterlibre1:	la $t6, FAT
+		sub $t6, $t4, $t6
+		mul $t6, $t6, 4
+		add $t6, $t5, $t6
+		
+		add $t8, $0, $0		# Guardo 4bytes en un cluster
+guardando:	lb $t7, 0($t0)
+		sb $t7, 0($t6)
+		addi $t0, $t0, 1
+		addi $t6, $t6, 1
+		addi $t2, $t2, 1
+		addi $t8, $t8, 1
+		beq $t3, $t2, marcandofatf
+		beq $t8, 4, clusterlibres1
+		b guardando
+	
+marcandofat:	ble $t2, 4, entradadirect	# Identifico en el cluster de FAT, el proximo cluster de la plabra
+marcandofat1:	la $t6, FAT
+		sub $t6, $t4, $t6
+		sb $t6, 0($t9)
+		b clusterlibre1
+		
+entradadirect:	la $t6,	directorio		# Creo la entrada en el directorio
+entradadirect1:	lb $t7, 0($t6)
+		beqz $t7, llenardirect
+		addi $t6, $t6, 14
+		b entradadirect1
+		
+llenardirect:	addi $sp, $sp, -4
+		sw $t6, 4($sp)
+		move $t7, $s1
+llenardirect1:	lb $t8, 0($t7)
+		beqz $t8, llenardirect2
+		sb $t8, 0($t6)
+		addi $t7,$t7, 1
+		addi $t6, $t6, 1
+		b llenardirect1
+		
+llenardirect2:	lw $t7, 4($sp)
+		addi $sp, $sp, 4
+		addi $t7, $t7, 13
+		la $t6, FAT
+		sub $t6, $t4, $t6
+		sb $t6, 0($t7)
+		b marcandofat1
+		
+		
+marcandofatf:	subi $t6, $0, 1		# Marco -1 en el cluster en FAT para el ultimo cluster usado.
+		sb $t6, 0($t4)
+				    
+salircrear:	jr   $ra
 
 
 # Entrada: $a0 ( direccion con el nombre del archivo )
