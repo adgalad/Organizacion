@@ -217,8 +217,9 @@ espaciolibre:	la $t4, FAT
 		
 		
 		la $t4, FAT
-clusterlibre:	la $t1, 1($t4)
-		 
+clusterlibre:	lw $t1, 1($t4)
+		beqz $t1, etiqueta	
+		b clusterlibre 
 		    
 		jr   $ra
 
