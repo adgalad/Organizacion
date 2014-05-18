@@ -13,8 +13,8 @@ error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
 error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
 error4:		.asciiz "Error: Comando invalido\n"
-error5:		.asciiz "Error: No hay espacio suficiente"
-error6:		.asciiz "Error: El nombre del archivo es muy largo"
+error5:		.asciiz "Error: No hay espacio suficiente\n"
+error6:		.asciiz "Error: El nombre del archivo es muy largo\n"
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -77,7 +77,9 @@ ifCopiar:	la   $a1, textCopiar
 ifRen:		la   $a1, textRenombrar
 		move $a0, $s0
 		jal  compararString
-		beqz $v0, ifSizeOf 
+		beqz $v0, ifSizeOf
+		jal ren
+		b main 
 		
 ifSizeOf:	la   $a1, textSizeOf
 		move  $a0, $s0
@@ -187,8 +189,13 @@ tamanonombre:	lb $t5, 0($t3)		# Verifico si el nombre del archivo no excede los 
 		addi $t3, $t3, 1
 		b tamanonombre
 		
+CError6:	imprime(error6)
+		jr $ra
+CError2:	imprime(error2)
+		jr $ra
+		
 cheqnombre:	addi $t5, $t5, 12
-		bgt $t0, $t5, error6		
+		bgt $t0, $t5, CError6		
 
 
 		add $t3, $0, $0		# Chequeo si existe el nombre en el directorio
@@ -210,7 +217,7 @@ cheqdirect:	la $a0, 0($t0)
 		addiu $sp, $sp, 12
 		addi $t3, $t3, 1
 		addi $t0, $t0, 14
-		bgtz $v0, error2
+		bgtz $v0, CError2
 		blt $t3, $t5, cheqdirect
 		
 		
@@ -222,7 +229,9 @@ contandopal:	addi $t0, $t0, 1
 		beqz $t1, espaciolibre
 		addi $t3, $t3, 1
 		b contandopal
-	
+		
+CError5:	imprime(error5)
+		jr $ra
 		 
 espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		la $t4, FAT
@@ -230,7 +239,7 @@ espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		add $t5, $0, $0
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
-		bgt $t3, $t4, error5
+		bgt $t3, $t4, CError5
 		
 		
 		la $t0, bufferIO
@@ -354,7 +363,95 @@ copiar:		b main
 
 # Entrada: 
 # Salida: 
-ren:		b main
+ren:		move $a0, $s1		# Divide los dos nombres de archivo en s1
+		addi $sp, $sp, -8
+		sw $fp, 8($sp)
+		sw $ra, 4($sp)
+		addi $fp, $sp, 8
+		jal split
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 8
+		
+		move $a0, $v1		# Elimino el salto de linea al final del argumento
+		addi $sp, $sp, -16	
+		lw $fp, 16($sp)
+		lw $ra, 12($sp)
+		lw $v0, 8($sp)
+		lw $v1, 4($sp)
+		addi $fp, $sp, 16
+		jal split
+		sw $v1, -12($fp)
+		sw $v0, -8($fp)
+		sw $ra, -4($fp)
+		sw $fp, 0($fp)
+		addiu $sp, $sp, 16
+		
+		add $t9, $0, $0
+		move $t0, $v1		# verifico si el nombre a cambiar tiene 12 chars o menos
+rencuentachar:	lb $t1, 0($t0)
+		beqz $t1, verificanum
+		addi $t0, $t0, 1
+		addi $t9, $t9, 1
+		b rencuentachar
+
+renError6:	imprime(error6)
+		jr $ra
+					
+verificanum:	bge $t9, 13, renError6		
+		
+		la $t0, directorio
+		addi $t5, $0, 256
+		move $a1, $v0
+		move $t1, $v1
+		add $t3, $0, $0
+		
+cheqdirect1:	la $a0, 0($t0) 		# Busco el archivo en el directorio
+		addi $sp, $sp, -20
+		sw $fp, 20($sp)
+		sw $ra, 16($sp)
+		sw $t0, 12($sp)
+		sw $t1, 8($sp)
+		sw $a1, 4($sp)
+		addi $fp, $sp, 20
+		jal compararString
+		lw $a1, -16($fp)
+		lw $t1, -12($fp)
+		lw $t0, -8($fp)
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 20
+		bgtz $v0, limpionombre
+		addi $t3, $t3, 1
+		addi $t0, $t0, 14
+		move $t7, $t0
+		beq  $t3, $t5, renError3
+		b cheqdirect1
+
+renError3:	imprime(error3)		
+		
+limpionombre:	add $t6, $0, $0
+		sb $t6, 0($t0)
+		addi $t0, $t0, 1
+		lb $t5, 0($t0)
+		beqz $t5, renombro
+		b limpionombre
+		
+renombro:	lb $t6, 0($t1)
+		beqz $t6, rensalir
+		sb $t6, 0($t7)
+		addi $t1, $t1, 1
+		addi $t7, $t7, 1
+		b renombro
+		
+rensalir:	jr $ra	
+	
+			
+		
+		
+		
+		
+		
 
 
 #Entrada: $s1 ( nombre del archivo )
