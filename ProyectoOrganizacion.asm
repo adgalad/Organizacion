@@ -85,7 +85,9 @@ ifRen:		la   $a1, textRenombrar
 ifSizeOf:	la   $a1, textSizeOf
 		move  $a0, $s0
 		jal  compararString
-		beqz $v0, ifSalir 
+		beqz $v0, ifSalir
+		jal sizeof
+		b main 
 		
 ifSalir:	la   $a1, textSalir
 		move $a0, $s0
@@ -247,6 +249,8 @@ espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		la $t4, FAT		# El FAT 0, esta reservado para uso del SMD
 		la $t5, discoDuro		
 		add $t2, $0, $0
+		b clusterlibres
+
 		
 clusterlibres1:	move $t9, $t4		# Encuentro Clusters libres para almacenar
 		addi $t4, $t4, 1			
@@ -298,7 +302,7 @@ llenardirect2:	lw $t7, 4($sp)
 		addi $sp, $sp, 4
 		addi $t7, $t7, 13
 		la $t6, FAT
-		sub $t6, $t4, $t6
+		sub $t6, $t9, $t6
 		sb $t6, 0($t7)
 		b marcandofat1
 		
@@ -476,8 +480,90 @@ rensalir:	jr $ra
 
 #Entrada: $s1 ( nombre del archivo )
 #Salida:   ( Unidades de cluster ) y ( Unidades de Bytes ) 
-sizeof:		move $v1, $s1
+
+sizeof:		move $t9, $s1		# Elimino el salto de linea al final del argumento
+		move $a0, $t9
+		addi $sp, $sp, -8
+		sw $fp, 8($sp)
+		sw $ra, 4($sp)
+		addi $fp, $sp, 8
 		jal split
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 8
+		
+		
+		add $t0, $0, $0		# Chequeo si el archivo existe
+		la $t1, directorio
+		add $t2, $0, $0
+		addi $t3, $0, 256
+		move $a1, $t9
+		
+cheqdirect3:	la $a0, 0($t1)
+		addi $sp, $sp, -20
+		sw $fp, 20($sp)
+		sw $ra, 16($sp)
+		sw $a1, 12($sp)
+		sw $t0, 8($sp)
+		sw $t1, 4($sp)
+		addi $fp, $sp, 20
+		jal compararString
+		lw $t1, -16($fp)
+		lw $t0, -12($fp)
+		lw $a1, -8($fp)
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 20
+		move $t0, $t1
+		bgtz $v0, calculator
+		addi $t2, $t2, 1
+		addi $t1, $t1, 14
+		beq $t2, $t3, sizeofError3
+		b cheqdirect3
+		
+sizeofError3:	imprime(error3)
+		jr $ra
+		
+calculator:	add $t6, $0, $0
+		lbu $t1, 13($t0)	# Realizo la biyeccion del FAT al DiscoDuro
+calculator1:	la $t0, FAT
+		la $t3,	discoDuro
+		add $t0, $t0, $t1	
+		mul $t2, $t1, 4
+		add $t3, $t3, $t2
+		
+cuentacluster:	add $t4, $0, $0
+		lb $t5, 0($t3)
+		beqz $t5, etiqueta
+		addi $t4, $t4, 1
+		addi $t6, $t6, 1
+		addi $t3, $t3, 1
+		blt $t4, 4, cuentacluster
+		lbu $t1, 0($t0)
+		b calculator1
+		
+etiqueta:	li $v0, 1
+		move $a0, $t6
+		syscall
+		
+		jr $ra
+		
+		 
+		
+		
+		
+		
+		
+		
+
+		
+		
+		
+		
+		
+		
+		
+		
 		
 
 
