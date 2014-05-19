@@ -2,12 +2,16 @@
 
 	.data
 	
+.align 2	
 FAT:		.space  256  # 256 bytes reservados para la Tabla FAT
+.align 2
 directorio:	.space  3584 # 256 casillas de 14 bytes (13 para nombre y uno para cluster de inicio)
+.align 2
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
+.align 2
 buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
+.align 2
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
-
 
 error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
@@ -313,6 +317,8 @@ marcandofatf:	subi $t6, $0, 1		# Marco -1 en el cluster en FAT para el ultimo cl
 salircrear:	jr   $ra
 
 
+
+
 # Entrada: $a0 ( direccion con el nombre del archivo )
 # Salida:  nada
 imprimir: 	li   $t0, 0
@@ -323,9 +329,19 @@ imprimir: 	li   $t0, 0
 		# $t1 direccion del directorio
 		# $a0 direccion con nombre del archivo
 		
-loopExisteImp:	jal  compararString
+loopExisteImp:	addi $sp, $sp, -8
+		sw   $ra, 4($sp)
+		sw   $t1, 8($sp)
+		move $a1, $t1
+		jal  split
+		move $a0, $v0
+		jal  compararString
+		lw   $ra, 4($sp)
+		lw   $t1, 8($sp)
+		addi $sp, $sp, 8
 		beq  $v0, 1 , existeImpri
 		beq  $t0, 255, noExisteImpri
+		la   $t1, directorio
 		addi $t1, $t1, 14			# flag
 		addi $t0, $t0, 1
 		b loopExisteImp
@@ -473,7 +489,59 @@ rensalir:	jr $ra
 			
 		
 		
+# Entrada: $a1 ( Direccion con el nombre del string a buscar)
+# Salida: $v0 ( Nombre del archivo que contiene el string buscado)	
+
+
+		# $t0 directorio
+		# $t1 string
+		# $t2 disco duro
+		# $t3 FAT
+		# $t4 auxiliar
+		# $t5 iterador
+		# $t6 iterador
 		
+buscar:		li   $t6, 0
+
+loopBuscarDir:	la   $t0, directorio
+		li   $t1, 14
+		mult $t1, $t6, 
+		add  $t0, $t0, $t1
+		addi $t0, $t0, 13
+		move $t1, $a0
+		lb   $t4, 0($t0)
+
+
+loopBuscarFAT:	la   $t2, discoDuro
+		sll  $t5, $t4, 2
+		add  $t2, $t2, $t4 
+		li   $t5, 0
+
+loopComparar:   lb   $t4, 0($t2)
+		lb   $t7, 0($t1)
+		bne  $t4, $t7, salirLoop
+		addi $t5, $t5, 1
+		addi $t2, $t2, 1
+		addi $t1, $t1, 1
+		bne  $t5, 4, loopComparar
+		
+		la  $t0, FAT
+		add $t0, $t0, $t4
+		lb  $t4, 0($t0)
+		beq $t4, $0, retornar
+		b loopBuscarFAT
+
+salirLoop:	addi $t6, $t6, 1
+		blt  $t6, 256, loopBuscarDir      
+		li   $v0, -1
+		jr   $ra
+		
+retornarBuscar:	li   $t0, 14
+		mult $t6, $t0
+		la   $v0, directorio
+		add  $v0, $v0, $t6
+		jr   $ra
+				
 		
 		
 
