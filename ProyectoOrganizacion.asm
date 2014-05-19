@@ -528,7 +528,7 @@ loopComparar:   lb   $t4, 0($t2)
 		la  $t0, FAT
 		add $t0, $t0, $t4
 		lb  $t4, 0($t0)
-		beq $t4, $0, retornar
+		beq $t4, $0, retornarBuscar
 		b loopBuscarFAT
 
 salirLoop:	addi $t6, $t6, 1
