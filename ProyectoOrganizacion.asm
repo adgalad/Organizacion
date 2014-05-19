@@ -15,6 +15,7 @@ error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
 error4:		.asciiz "Error: Comando invalido\n"
 error5:		.asciiz "Error: No hay espacio suficiente\n"
 error6:		.asciiz "Error: El nombre del archivo es muy largo\n"
+error7:		.asciiz "Error: El nombre al que quieres renombrar ya existe \n"
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -235,7 +236,7 @@ CError5:	imprime(error5)
 		 
 espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		la $t4, FAT
-		lw  $t4, 0($t4)
+		lbu  $t4, 0($t4)
 		add $t5, $0, $0
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
@@ -372,61 +373,80 @@ ren:		move $a0, $s1		# Divide los dos nombres de archivo en s1
 		lw $ra, -4($fp)
 		lw $fp, 0($fp)
 		addiu $sp, $sp, 8
+		move $t8, $v0
+		move $t9, $v1
 		
-		move $a0, $v1		# Elimino el salto de linea al final del argumento
-		addi $sp, $sp, -16	
-		lw $fp, 16($sp)
-		lw $ra, 12($sp)
-		lw $v0, 8($sp)
-		lw $v1, 4($sp)
-		addi $fp, $sp, 16
+		move $a0, $t9		# Elimino el salto de linea al final del argumento
+		addi $sp, $sp, -8	
+		sw $fp, 8($sp)
+		sw $ra, 4($sp)
+		addi $fp, $sp, 8
 		jal split
-		sw $v1, -12($fp)
-		sw $v0, -8($fp)
-		sw $ra, -4($fp)
-		sw $fp, 0($fp)
-		addiu $sp, $sp, 16
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 8
 		
-		add $t9, $0, $0
-		move $t0, $v1		# verifico si el nombre a cambiar tiene 12 chars o menos
+		la $t0, directorio
+		addi $t5, $0, 256
+		move $a1, $t9
+		add $t3, $0, $0
+		
+cheqdirect1:	la $a0, 0($t0)		# Chequeo si el nombre a renombrar, exista en el directorio
+		addi $sp, $sp, -12
+		sw $fp, 12($sp)
+		sw $ra, 8($sp)
+		sw $t0, 4($sp)
+		addi $fp, $sp, 12
+		jal compararString
+		lw $t0, -8($fp)
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 12
+		bgtz $v0, renError7
+		addi $t3, $t3, 1
+		addi $t0, $t0, 14
+		blt $t3, $t5, cheqdirect1
+		
+		add $t2, $0, $0
+		move $t0, $t9		# verifico si el nombre a cambiar tiene 12 chars o menos
 rencuentachar:	lb $t1, 0($t0)
 		beqz $t1, verificanum
 		addi $t0, $t0, 1
-		addi $t9, $t9, 1
+		addi $t2, $t2, 1
 		b rencuentachar
+		
+renError7:	imprime(error7)
+		jr $ra
 
 renError6:	imprime(error6)
 		jr $ra
 					
-verificanum:	bge $t9, 13, renError6		
+verificanum:	bge $t2, 13, renError6		
 		
 		la $t0, directorio
 		addi $t5, $0, 256
-		move $a1, $v0
-		move $t1, $v1
+		move $a1, $t8
 		add $t3, $0, $0
 		
-cheqdirect1:	la $a0, 0($t0) 		# Busco el archivo en el directorio
-		addi $sp, $sp, -20
-		sw $fp, 20($sp)
-		sw $ra, 16($sp)
-		sw $t0, 12($sp)
-		sw $t1, 8($sp)
+cheqdirect2:	la $a0, 0($t0) 		# Busco el archivo en el directorio
+		addi $sp, $sp, -16
+		sw $fp, 16($sp)
+		sw $ra, 12($sp)
+		sw $t0, 8($sp)
 		sw $a1, 4($sp)
-		addi $fp, $sp, 20
+		addi $fp, $sp, 16
 		jal compararString
-		lw $a1, -16($fp)
-		lw $t1, -12($fp)
+		lw $a1, -12($fp)
 		lw $t0, -8($fp)
 		lw $ra, -4($fp)
 		lw $fp, 0($fp)
-		addiu $sp, $sp, 20
+		addiu $sp, $sp, 12
+		move $t7, $t0
 		bgtz $v0, limpionombre
 		addi $t3, $t3, 1
 		addi $t0, $t0, 14
-		move $t7, $t0
 		beq  $t3, $t5, renError3
-		b cheqdirect1
+		b cheqdirect2
 
 renError3:	imprime(error3)		
 		
@@ -437,10 +457,10 @@ limpionombre:	add $t6, $0, $0
 		beqz $t5, renombro
 		b limpionombre
 		
-renombro:	lb $t6, 0($t1)
+renombro:	lb $t6, 0($t9)
 		beqz $t6, rensalir
 		sb $t6, 0($t7)
-		addi $t1, $t1, 1
+		addi $t9, $t9, 1
 		addi $t7, $t7, 1
 		b renombro
 		
