@@ -20,6 +20,9 @@ error4:		.asciiz "Error: Comando invalido\n"
 error5:		.asciiz "Error: No hay espacio suficiente\n"
 error6:		.asciiz "Error: El nombre del archivo es muy largo\n"
 error7:		.asciiz "Error: El nombre al que quieres renombrar ya existe \n"
+sizeofbytes:	.asciiz "\n Total de bytes: "
+sizeofclusters:	.asciiz "\n Total de clusters: "
+salto:		.asciiz "\n"
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -313,6 +316,17 @@ llenardirect2:	lw $t7, 4($sp)
 		
 marcandofatf:	subi $t6, $0, 1		# Marco -1 en el cluster en FAT para el ultimo cluster usado.
 		sb $t6, 0($t4)
+		li $t0, 4
+		div  $t3, $t0
+		mflo $t3
+		mfhi $t2
+		beqz $t2, descuentlibre
+		addi $t3, $t3, 1
+		
+descuentlibre:	la $t2, FAT
+		lbu $t0, 0($t2)
+		sub $t0, $t0, $t3
+		sb $t0, 0($t2)
 				    
 salircrear:	jr   $ra
 
@@ -602,7 +616,7 @@ calculator1:	la $t0, FAT
 		
 cuentacluster:	add $t4, $0, $0
 		lb $t5, 0($t3)
-		beqz $t5, etiqueta
+		beqz $t5, imprimirsizeof
 		addi $t4, $t4, 1
 		addi $t6, $t6, 1
 		addi $t3, $t3, 1
@@ -610,18 +624,34 @@ cuentacluster:	add $t4, $0, $0
 		lbu $t1, 0($t0)
 		b calculator1
 		
-etiqueta:	li $v0, 1
+imprimirsizeof:	li $v0, 4
+		la $a0, sizeofbytes
+		syscall
+		 
+		li $v0, 1
 		move $a0, $t6
+		syscall
+		li $t0, 4
+		div $t6, $t0
+		mflo $t6
+		mfhi $t0
+		beqz $t0, impcluster
+		addi $t6, $t6, 1
+		
+impcluster:	li $v0, 4
+		la $a0, sizeofclusters
+		syscall
+		
+		li $v0, 1
+		move $a0, $t6
+		syscall
+
+		
+		li $v0, 4
+		la $a0, salto
 		syscall
 		
 		jr $ra
-		
-		 
-		
-		
-		
-		
-		
 		
 
 		
