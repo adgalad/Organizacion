@@ -1,7 +1,6 @@
 
 
 	.data
-	
 .align 2	
 FAT:		.space  256  # 256 bytes reservados para la Tabla FAT
 .align 2
@@ -12,6 +11,7 @@ discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco
 buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
 .align 2
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
+
 
 error1:		.asciiz "Error: El Disco esta lleno\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
@@ -32,6 +32,7 @@ textCopiar:	.asciiz "copiar"
 textRenombrar:	.asciiz "ren"
 textSizeOf:	.asciiz "sizeof"
 textImprimir:	.asciiz "imprimir"
+textBuscar:	.asciiz "buscar"
 textSalir:	.asciiz "salir"
 	
 	
@@ -92,9 +93,17 @@ ifRen:		la   $a1, textRenombrar
 ifSizeOf:	la   $a1, textSizeOf
 		move  $a0, $s0
 		jal  compararString
-		beqz $v0, ifSalir
+		beqz $v0, ifBuscar
 		jal sizeof
 		b main 
+
+ifBuscar:	la   $a1, textBuscar
+		move  $a0, $s0
+		jal  compararString
+		beqz $v0, ifSalir
+		move  $a0, $s1
+		jal buscar
+		b main 	
 		
 ifSalir:	la   $a1, textSalir
 		move $a0, $s0
@@ -103,7 +112,8 @@ ifSalir:	la   $a1, textSalir
 		
 		imprime(error4)
 		b main
-		
+
+			
 	
 		
 salirMain:      li  $v0, 10
@@ -503,7 +513,7 @@ rensalir:	jr $ra
 			
 		
 		
-# Entrada: $a1 ( Direccion con el nombre del string a buscar)
+# Entrada: $a0 ( Direccion con el nombre del string a buscar)
 # Salida: $v0 ( Nombre del archivo que contiene el string buscado)	
 
 
@@ -516,7 +526,11 @@ rensalir:	jr $ra
 		# $t6 iterador
 		
 buscar:		li   $t6, 0
-
+		addi $sp, $sp, -4
+		sw   $ra, 4($sp)
+		jal  split
+		lw   $ra, 4($sp)
+		addi $sp, $sp, 4
 loopBuscarDir:	la   $t0, directorio
 		li   $t1, 14
 		mult $t1, $t6, 
@@ -663,5 +677,6 @@ impcluster:	li $v0, 4
 		
 		
 		
+
 
 
