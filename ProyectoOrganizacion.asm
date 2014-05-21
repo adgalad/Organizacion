@@ -8,7 +8,7 @@ directorio:	.space  3584 # 256 casillas de 14 bytes (13 para nombre y uno para c
 .align 2
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
 .align 2
-buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
+buffer:		.space  60   # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
 .align 2
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
 
@@ -23,6 +23,7 @@ error7:		.asciiz "Error: El nombre al que quieres renombrar ya existe \n"
 sizeofbytes:	.asciiz "\n Total de bytes: "
 sizeofclusters:	.asciiz "\n Total de clusters: "
 salto:		.asciiz "\n"
+NombArchivo:	.asciiz "El nombre del archivo es:" 
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -33,8 +34,7 @@ textRenombrar:	.asciiz "ren"
 textSizeOf:	.asciiz "sizeof"
 textImprimir:	.asciiz "imprimir"
 textBuscar:	.asciiz "buscar"
-textSalir:	.asciiz "salir"
-textNomArchivo:	.asciiz "El nombre del archivo es:" 	
+textSalir:	.asciiz "salir"	
 	
 	.text
 
@@ -47,11 +47,29 @@ textNomArchivo:	.asciiz "El nombre del archivo es:"
 
 # inicializo la casilla 0 de FAT en 255 ( el total de clusters libres )
 		addi $t0, $0, 250
-		la $t1, FAT
-		sb  $t0, 0($t1)
+		la   $t1, FAT
+		sb   $t0, 0($t1)
 		
 		imprime(bienvenida)
 main:		imprime(prompt)
+		
+#		la   $s0, buffer
+#		li   $s1, 0 
+#		move $s2, $0
+#limpiarBuffer:  sb   $s2, 0($s0)
+#		addi $s1, $s1, 1
+#		addi $s0, $s0, 1
+#		beq  $s1, 60, limpiarBuffer
+#
+#		la   $s0, bufferIO
+#		li   $s1, 0 
+#		move $s2, $0
+#limpiarBufferIO:sb   $s2, 0($s0)
+#		addi $s1, $s1, 1
+#		addi $s0, $s0, 1
+#		beq  $s1, 1025, limpiarBufferIO
+#
+
 
 		jal  input
 		move $a0, $v0
@@ -107,7 +125,7 @@ ifBuscar:	la   $a1, textBuscar
 		move  $a0, $s1
 		jal buscar
 		move $s1, $v0
-		imprime(textNomArchivo)
+		imprime(NombArchivo)
 		li $v0 , 4
 		move $a0 , $s1
 		syscall
@@ -164,6 +182,7 @@ split:		move $v0, $a0
 loopSplit:      lb   $t0, 0($v1)
 		beq  $t0, ' ', salirInput
 		beq  $t0, '\n', salirInput
+		beqz $t0, salirInput
 		addi $v1, $v1, 1
 		b    loopSplit
 		
@@ -395,10 +414,11 @@ existeImpri:    la   $t0 bufferIO
 		sw   $t3, 0($t0) 
 		addi $t0, $t0, 4 
 loopImpri:	la   $t2 discoDuro	
-		lb   $t3, 0($t1)
+		lbu  $t3, 0($t1)
 		la   $t1, FAT
 		add  $t1, $t1, $t3
-		lb   $t3, 0($t1) 
+		lbu  $t3, 0($t1) 
+		beq  $t3, '\n', salirImpri
 		beqz $t3, salirImpri
 		sll  $t3, $t3, 2
 		add  $t2, $t2, $t3
@@ -757,7 +777,7 @@ loopComparar:   lb   $t4, 0($t2)
 		
 		la  $t0, FAT
 		add $t0, $t0, $t4
-		lb  $t4, 0($t0)
+		lbu $t4, 0($t0)
 		beq $t4, $0, retornarBuscar
 		b loopBuscarFAT
 
@@ -829,8 +849,8 @@ calculator1:	la $t0, FAT
 		mul $t2, $t1, 4
 		add $t3, $t3, $t2
 		
-cuentacluster:	add $t4, $0, $0		# Cuenta byte a byte las palabras almacenadas en el discoduro
-		lb $t5, 0($t3)
+		add $t4, $0, $0		# Cuenta byte a byte las palabras almacenadas en el discoduro
+cuentacluster:	lb $t5, 0($t3)
 		beqz $t5, imprimirsizeof
 		addi $t4, $t4, 1
 		addi $t6, $t6, 1
