@@ -34,7 +34,7 @@ textSizeOf:	.asciiz "sizeof"
 textImprimir:	.asciiz "imprimir"
 textBuscar:	.asciiz "buscar"
 textSalir:	.asciiz "salir"
-textNomArchivo	.asciiz "El Archivo 	
+textNomArchivo	.asciiz "El nombre del archivo es:" 	
 	
 	.text
 
