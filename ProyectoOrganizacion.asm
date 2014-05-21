@@ -34,7 +34,7 @@ textSizeOf:	.asciiz "sizeof"
 textImprimir:	.asciiz "imprimir"
 textBuscar:	.asciiz "buscar"
 textSalir:	.asciiz "salir"
-	
+textNomArchivo	.asciiz "El Archivo 	
 	
 	.text
 
@@ -106,6 +106,12 @@ ifBuscar:	la   $a1, textBuscar
 		beqz $v0, ifSalir
 		move  $a0, $s1
 		jal buscar
+		move $s1, $v0
+		imprime(textNomArchivo)
+		li $v0 , 4
+		move $a0 , $s1
+		syscall
+		move $v0, $s1
 		b main 	
 		
 ifSalir:	la   $a1, textSalir
@@ -697,11 +703,21 @@ rensalir:	jr $ra
 	
 			
 		
-		
+
 # Entrada: $a0 ( Direccion con el nombre del string a buscar)
 # Salida: $v0 ( Nombre del archivo que contiene el string buscado)	
+		
+buscar:		move $t1, $a0
 
-
+loopSplit2:     lb   $t0, 0($t1)
+		beq  $t0, '\0', salirSplit2
+		beq  $t0, '\n', salirSplit2
+		addi $t1, $t1, 1
+		b    loopSplit2
+		
+salirSplit2:	add  $t0, $0, $0
+		sb   $t0, 0($t1)	
+		
 		# $t0 directorio
 		# $t1 string
 		# $t2 disco duro
@@ -710,15 +726,11 @@ rensalir:	jr $ra
 		# $t5 iterador
 		# $t6 iterador
 		
-buscar:		li   $t6, 0
-		addi $sp, $sp, -4
-		sw   $ra, 4($sp)
-		jal  split
-		lw   $ra, 4($sp)
-		addi $sp, $sp, 4
+		li   $t6, 0
+		
 loopBuscarDir:	la   $t0, directorio
 		li   $t1, 14
-		mult $t1, $t6, 
+		mul  $t1, $t1, $t6 
 		add  $t0, $t0, $t1
 		addi $t0, $t0, 13
 		move $t1, $a0
@@ -726,7 +738,7 @@ loopBuscarDir:	la   $t0, directorio
 
 
 loopBuscarFAT:	la   $t2, discoDuro
-		sll  $t5, $t4, 2
+		sll  $t4, $t4, 2
 		add  $t2, $t2, $t4 
 		li   $t5, 0
 
@@ -750,11 +762,10 @@ salirLoop:	addi $t6, $t6, 1
 		jr   $ra
 		
 retornarBuscar:	li   $t0, 14
-		mult $t6, $t0
+		mul  $t6, $t0, $t6
 		la   $v0, directorio
 		add  $v0, $v0, $t6
-		jr   $ra
-				
+		jr   $ra				
 		
 		
 
