@@ -352,7 +352,6 @@ salircrear:	jr   $ra
 
 
 
-
 # Entrada: $a0 ( direccion con el nombre del archivo )
 # Salida:  nada
 imprimir: 	li   $t0, 0
@@ -388,7 +387,13 @@ existeImpri:    la   $t0 bufferIO
 		# $t1 direccion con la FAT
 		# $t2 direccion del disco duro
 		# $t3 variable para moverse en el Disco y la FAT
-		
+		lb   $t3, 0($t1)
+		sll  $t3, $t3, 2
+		la   $t2, discoDuro
+		add  $t2, $t2, $t3
+		lw   $t3, 0($t2)
+		sw   $t3, 0($t0) 
+		addi $t0, $t0, 4 
 loopImpri:	la   $t2 discoDuro	
 		lb   $t3, 0($t1)
 		la   $t1, FAT
