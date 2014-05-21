@@ -46,7 +46,7 @@ textSalir:	.asciiz "salir"
 .end_macro
 
 # inicializo la casilla 0 de FAT en 255 ( el total de clusters libres )
-		addi $t0, $0, 255
+		addi $t0, $0, 250
 		la $t1, FAT
 		sb  $t0, 0($t1)
 		
@@ -81,7 +81,10 @@ ifImprimir:	la   $a1, textImprimir
 ifCopiar:	la   $a1, textCopiar
 		move $a0, $s0
 		jal  compararString
-		beqz $v0, ifRen 
+		beqz $v0, ifRen
+		move $a1, $s1 
+		jal copiar
+		b main 
 		
 ifRen:		la   $a1, textRenombrar
 		move $a0, $s0
@@ -244,9 +247,9 @@ cheqdirect:	la $a0, 0($t0)
 		add $t3, $0, $0		# Cuento el numero de bytes a guardar
 		la $t0, bufferIO
 		
-contandopal:	addi $t0, $t0, 1
-		lb $t1, 0($t0)
+contandopal:	lb $t1, 0($t0)
 		beqz $t1, espaciolibre
+		addi $t0, $t0, 1
 		addi $t3, $t3, 1
 		b contandopal
 		
@@ -266,12 +269,13 @@ espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		la $t4, FAT		# El FAT 0, esta reservado para uso del SMD
 		la $t5, discoDuro		
 		add $t2, $0, $0
+		addi $t4, $t4, 1
 		b clusterlibres
 
 		
 clusterlibres1:	move $t9, $t4		# Encuentro Clusters libres para almacenar
 		addi $t4, $t4, 1			
-clusterlibres:	lb $t1, 0($t4)
+clusterlibres:	lbu $t1, 0($t4)
 		beqz $t1, clusterlibre
 		addi $t4, $t4, 1	
 		b clusterlibres
@@ -324,7 +328,7 @@ llenardirect2:	lw $t7, 4($sp)
 		b marcandofat1
 		
 		
-marcandofatf:	subi $t6, $0, 1		# Marco -1 en el cluster en FAT para el ultimo cluster usado.
+marcandofatf:	add $t6, $0, 255		# Marco -1 en el cluster en FAT para el ultimo cluster usado.
 		sb $t6, 0($t4)
 		li $t0, 4
 		div  $t3, $t0
@@ -401,9 +405,190 @@ noExisteImpri:  imprime(error3)
 
 
 
-# Entrada: 
+# Entrada: $a1 ( archivo fuente y archivo destino )
 # Salida: 
-copiar:		b main
+copiar:		move $a0, $a1		# Divide los dos nombres de archivo en s1
+		addi $sp, $sp, -8
+		sw $fp, 8($sp)
+		sw $ra, 4($sp)
+		addi $fp, $sp, 8
+		jal split
+		lw $ra -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 8
+		move $t8, $v0
+		move $t9, $v1
+		
+		move $a0, $t9		# Elimino el Salto de linea al final del argumento
+		addiu $sp, $sp, -8
+		sw $fp, 8($sp)
+		sw $ra, 4($sp)
+		addi $fp, $sp, 8
+		jal split
+		lw $ra, -4($sp)
+		lw $ra, 0($sp)
+		addiu $sp, $sp, 8
+		
+		
+		la $t0, directorio	# Verifico si el archivo fuente existe en el directorio
+		add $t1, $0, $0
+		add $t2, $0, 255
+		
+cheqdirect4:	move $a0, $t8
+		addi $sp, $sp, -16
+		sw $fp, 16($sp)
+		sw $ra, 12($sp)
+		sw $t0, 8($sp)
+		sw $t1, 4($sp)
+		addi $fp, $sp, 16
+		jal compararString
+		sw $t1, -12($fp)
+		sw $t0, -8($fp)
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		bgtz $v0, cheqdirect5
+		addiu $sp, $sp, 16
+		addi $t1, $t1, 1
+		addi $t0, $t0, 14
+		blt $t1, $t2, cheqdirect4
+		b copiarError3
+		
+copiarError3:	imprime(error3)
+		jr $ra
+		
+cheqdirect5:	move $t6, $t0
+		addi $sp, $sp, -4
+		sw $t6, 4($sp)
+		la $t0, directorio		# Verifico si el archivo destino existe en el directorio
+		add $t1, $0, $0
+		addi $t2, $0, 255
+		
+cheqdirect5.1:	move $a0, $t9
+		addi $sp, $sp, -16
+		sw $fp, 16($sp)
+		sw $ra,	12($sp)
+		sw $t0, 8($sp)
+		sw $t1, 4($sp)
+		addi $fp, $sp, 16
+		jal compararString
+		lw $t1, -12($fp)
+		lw $t0, -8($fp)
+		lw $ra, -4($fp)
+		lw $fp, 0($fp)
+		addiu $sp, $sp, 16
+		bgtz $v0, tamfuente1
+		addi $t1, $t1, 1
+		addi $t0, $t0, 14
+		blt $t1, $t2, cheqdirect5.1
+		b copiarError3
+		
+tamfuente1:	move $t7, $t0		# Determino el tamano de clusters de la fuente
+		move $t5, $t0
+		lb $t1, 13($t6)
+		add $t6, $0, $0
+tamfuente1.1:	la $t0, FAT
+		add $t0, $t0, $t1
+		mul $t1, $t1, 4
+		la $t2, discoDuro
+		add $t2, $t1, $t2
+		
+tamfuente1.2:	add $t3, $0, $0
+		lb $t4, 0($t2)
+		beqz $t4, tamfuente2
+		addi $t3, $t3, 1
+		addi $t6, $t6, 1
+		addi $t2, $t2, 1
+		blt $t3, 4, tamfuente1.2
+		lbu $t1, 0($t0)
+		beq $t1, 255, tamfuente2
+		beq $t3, 4, tamfuente1.1
+		
+tamfuente2:	lbu $t1, 13($t7)	# Determino el tamano de clusters del destino 
+		add $t7, $0, $0
+tamfuente2.1:	la $t0, FAT
+		add $t0, $t0, $t1
+		mul $t1, $t1, 4
+		la $t2, discoDuro
+		add $t2, $t1, $t2
+		
+tamfuente2.2:	add $t3, $0, $0
+		lb $t4, 0($t2)
+		beqz $t4, vercapacidad
+		addi $t3, $t3, 1
+		addi $t7, $t7, 1
+		addi $t2, $t2, 1
+		blt $t3, 4, tamfuente2.2
+		lbu $t1, 0($t0)
+		beq $t1, 255, vercapacidad
+		beq $t3, 4, tamfuente2.1
+		
+vercapacidad:	sub $t0, $t7, $t6
+		bgtz $t0, cheqespacio
+		b limpiarfuente
+	
+cheqespacio:	la $t1, FAT
+		lbu $t1, 0($t1)
+		mul $t1, $t1, 4
+		ble $t0, $t1, limpiarfuente
+		b copiarError5
+		
+copiarError5:	imprime(error5)
+		jr $ra
+		
+limpiarfuente:	lbu $t1, 13($t5)
+limpiarfuente1:	la $t0, FAT
+		add $t0, $t0, $t1
+		mul $t2, $t1, 4
+		la $t3, discoDuro
+		add $t3, $t3, $t2
+		
+		add $t4, $0, $0
+limpiarfuente2:	sw $0, 0($t3)
+		addi $t4, $t4, 1
+		subi $t7, $t7, 1
+		beqz $t7, llenarbuffer
+		blt $t4, 4, limpiarfuente2
+		lbu $t1, 0($t0)
+		beq $t1, 255, llenarbuffer
+		beq $t4, 4, limpiarfuente1
+		
+
+llenarbuffer:	la $t5, bufferIO
+		lw $t7, 4($sp)
+		addi $sp, $sp, 4
+		lbu $t0, 13($t7)
+llenarbuffer1:	la $t1, FAT
+		add $t1, $t1, $t0
+		mul $t2, $t1, 4
+		la $t3, discoDuro
+		add $t3, $t3, $t2
+		
+llenarbuffer2:	add $t4 $0, $0
+		lb $t0 0($t3)
+		beqz $t0, llamadacrear 
+		sw $t0,0($t5)
+		addi $t5, $t5, 1
+		addi $t3, $t3, 1
+		addi $t4, $t4, 1
+		subi $t6, $t6, 1
+		blt $t4, 4, llenarbuffer2
+		lbu $t0, 0($t1)
+		beq $t0, 255, llamadacrear
+		beq $t4, 4, llenarbuffer1
+		
+llamadacrear:	
+		
+	
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 
 
 # Entrada: 
@@ -431,7 +616,7 @@ ren:		move $a0, $s1		# Divide los dos nombres de archivo en s1
 		addiu $sp, $sp, 8
 		
 		la $t0, directorio
-		addi $t5, $0, 256
+		addi $t5, $0, 255
 		move $a1, $t9
 		add $t3, $0, $0
 		
@@ -468,7 +653,7 @@ renError6:	imprime(error6)
 verificanum:	bge $t2, 13, renError6		
 		
 		la $t0, directorio
-		addi $t5, $0, 256
+		addi $t5, $0, 255
 		move $a1, $t8
 		add $t3, $0, $0
 		
@@ -592,7 +777,7 @@ sizeof:		move $t9, $s1		# Elimino el salto de linea al final del argumento
 		add $t0, $0, $0		# Chequeo si el archivo existe
 		la $t1, directorio
 		add $t2, $0, $0
-		addi $t3, $0, 256
+		addi $t3, $0, 255
 		move $a1, $t9
 		
 cheqdirect3:	la $a0, 0($t1)
@@ -624,11 +809,11 @@ calculator:	add $t6, $0, $0
 		lbu $t1, 13($t0)	# Realizo la biyeccion del FAT al DiscoDuro
 calculator1:	la $t0, FAT
 		la $t3,	discoDuro
-		add $t0, $t0, $t1	
+		add $t0, $t0, $t1
 		mul $t2, $t1, 4
 		add $t3, $t3, $t2
 		
-cuentacluster:	add $t4, $0, $0
+cuentacluster:	add $t4, $0, $0		# Cuenta byte a byte las palabras almacenadas en el discoduro
 		lb $t5, 0($t3)
 		beqz $t5, imprimirsizeof
 		addi $t4, $t4, 1
@@ -636,6 +821,7 @@ cuentacluster:	add $t4, $0, $0
 		addi $t3, $t3, 1
 		blt $t4, 4, cuentacluster
 		lbu $t1, 0($t0)
+		beq $t1, 255, imprimirsizeof
 		b calculator1
 		
 imprimirsizeof:	li $v0, 4
@@ -665,7 +851,7 @@ impcluster:	li $v0, 4
 		la $a0, salto
 		syscall
 		
-		jr $ra
+sizeofsalir:	jr $ra
 		
 
 		
