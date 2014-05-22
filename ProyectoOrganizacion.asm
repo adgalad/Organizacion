@@ -8,7 +8,7 @@ directorio:	.space  3584 # 256 casillas de 14 bytes (13 para nombre y uno para c
 .align 2
 discoDuro:	.space  1024 # 1024 bytes (1 kb) reservados para el disco 
 .align 2
-buffer:		.space  1025 # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
+buffer:		.space  60   # Espacio reservado para el buffer del input (Maximo 1 Kb + 1)
 .align 2
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
 
@@ -23,6 +23,7 @@ error7:		.asciiz "Error: El nombre al que quieres renombrar ya existe \n"
 sizeofbytes:	.asciiz "\n Total de bytes: "
 sizeofclusters:	.asciiz "\n Total de clusters: "
 salto:		.asciiz "\n"
+NombArchivo:	.asciiz "El nombre del archivo es:" 
 
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
@@ -33,8 +34,7 @@ textRenombrar:	.asciiz "ren"
 textSizeOf:	.asciiz "sizeof"
 textImprimir:	.asciiz "imprimir"
 textBuscar:	.asciiz "buscar"
-textSalir:	.asciiz "salir"
-	
+textSalir:	.asciiz "salir"	
 	
 	.text
 
@@ -49,9 +49,28 @@ textSalir:	.asciiz "salir"
 		addi $t0, $0, 254
 		la $t1, FAT
 		sb  $t0, 0($t1)
+
 		
 		imprime(bienvenida)
 main:		imprime(prompt)
+		
+#		la   $s0, buffer
+#		li   $s1, 0 
+#		move $s2, $0
+#limpiarBuffer:  sb   $s2, 0($s0)
+#		addi $s1, $s1, 1
+#		addi $s0, $s0, 1
+#		beq  $s1, 60, limpiarBuffer
+#
+		la   $s0, bufferIO
+		li   $s1, 0 
+		move $s2, $0
+limpiarBufferIO:sb   $s2, 0($s0)
+		addi $s1, $s1, 1
+		addi $s0, $s0, 1
+		bne  $s1, 1025, limpiarBufferIO
+
+
 
 		jal  input
 		move $a0, $v0
@@ -106,6 +125,12 @@ ifBuscar:	la   $a1, textBuscar
 		beqz $v0, ifSalir
 		move  $a0, $s1
 		jal buscar
+		move $s1, $v0
+		imprime(NombArchivo)
+		li $v0 , 4
+		move $a0 , $s1
+		syscall
+		move $v0, $s1
 		b main 	
 		
 ifSalir:	la   $a1, textSalir
@@ -158,6 +183,7 @@ split:		move $v0, $a0
 loopSplit:      lb   $t0, 0($v1)
 		beq  $t0, ' ', salirInput
 		beq  $t0, '\n', salirInput
+		beqz $t0, salirInput
 		addi $v1, $v1, 1
 		b    loopSplit
 		
@@ -346,7 +372,6 @@ salircrear:	jr   $ra
 
 
 
-
 # Entrada: $a0 ( direccion con el nombre del archivo )
 # Salida:  nada
 imprimir: 	li   $t0, 0
@@ -382,12 +407,19 @@ existeImpri:    la   $t0 bufferIO
 		# $t1 direccion con la FAT
 		# $t2 direccion del disco duro
 		# $t3 variable para moverse en el Disco y la FAT
-		
-loopImpri:	la   $t2 discoDuro	
 		lb   $t3, 0($t1)
+		sll  $t3, $t3, 2
+		la   $t2, discoDuro
+		add  $t2, $t2, $t3
+		lw   $t3, 0($t2)
+		sw   $t3, 0($t0) 
+		addi $t0, $t0, 4 
+loopImpri:	la   $t2 discoDuro	
+		lbu  $t3, 0($t1)
 		la   $t1, FAT
 		add  $t1, $t1, $t3
-		lb   $t3, 0($t1) 
+		lbu  $t3, 0($t1) 
+		beq  $t3, '\n', salirImpri
 		beqz $t3, salirImpri
 		sll  $t3, $t3, 2
 		add  $t2, $t2, $t3
@@ -531,7 +563,7 @@ tamfuente2.2:	lb $t4, 0($t2)
 vercapacidad:	sub $t0, $t7, $t6		# Calculo la diferencia de bytes que posee un archivo del otro
 		bltz $t0, cheqespacio
 		bgtz $t0, borrarcluster
-		b sobreescribir
+		b llenabufferIO
 		
 	
 cheqespacio:	la $t1, FAT			# Verifica si hay espacio suficiente para copiar
@@ -544,29 +576,34 @@ cheqespacio:	la $t1, FAT			# Verifica si hay espacio suficiente para copiar
 copiarError5:	imprime(error5)
 		jr $ra
 		
-borrarcluster:	div $t6, $t6, 4			# Determina los clusters sobrantes del archivo destino
-		mflo $t0
+borrarcluster:	div $t0, $t6, 4			# Determina los clusters sobrantes del archivo destino
 		mfhi $t2
 		sgt $t2, $t2, 0
 		add $t0, $t0, $t2
-		div $t7, $t7, 4
-		mflo $t1
+		div $t1, $t7, 4
 		mfhi $t2
 		sgt $t2, $t2, 0
 		add $t1, $t1, $t2
 		sub $t0, $t1, $t0
 		sub $t1, $t1, $t0
 		
-		lw $t2, 8($sp)
+		lw $t2, 4($sp)
 borrarcluster1:	la $t3, FAT			# ubica los cluster sobrantes a borrar del archivo destino
 		add $t3, $t3, $t2
-		sw $t2, 0($sp)
+		sw $t3, 0($sp)
 		lbu $t2, 0($t3)
 		subi $t1, $t1, 1
 		bgtz $t1, borrarcluster1
 		
 borrarcluster2:	la $t3, FAT			# Limpia la tabla FAT de los cluster sobrantes del archivo destino
+		la $t4, discoDuro
 		add $t3, $t3, $t2
+		mul $t2, $t2, 4
+		add $t4, $t4, $t2
+		sb $0, 0($t4)			# Limpio el cluster en el discoduro
+		sb $0, 1($t4)
+		sb $0, 2($t4)
+		sb $0, 3($t4)
 		lbu $t2, 0($t3)
 		sb $0, 0($t3)
 		subi $t0, $t0, 1
@@ -595,10 +632,10 @@ llenabufferIO2:	lb $t5, 0($t2)
 		b llenabufferIO1
 		
 sobreescribir:	add $s7, $0, $0			# Empezamos a copiar los datos del buffer en el archivo destino
+		lw $t3, 4($sp)
+		la $t2, bufferIO
 sobreescribir1:	la $t0, FAT
 		la $t1, discoDuro
-		la $t2, bufferIO
-		lw $t3, 4($sp)
 		add $t0, $t0, $t3
 		mul $t3, $t3, 4
 		add $t1, $t1, $t3
@@ -611,6 +648,7 @@ sobreescribir2:	lb $t5, 0($t2)
 		addi $t2, $t2, 1
 		addi $t3, $t3, 1
 		addi $t1, $t1, 1
+		beqz $t4, llamarcrear
 		beq $s7, $t7, llamarcrear
 		blt $t3, 4, sobreescribir2
 		lbu $t3, 0($t0)
@@ -785,11 +823,21 @@ rensalir:	jr $ra
 	
 			
 		
-		
+
 # Entrada: $a0 ( Direccion con el nombre del string a buscar)
 # Salida: $v0 ( Nombre del archivo que contiene el string buscado)	
+		
+buscar:		move $t1, $a0
 
-
+loopSplit2:     lb   $t0, 0($t1)
+		beq  $t0, '\0', salirSplit2
+		beq  $t0, '\n', salirSplit2
+		addi $t1, $t1, 1
+		b    loopSplit2
+		
+salirSplit2:	add  $t0, $0, $0
+		sb   $t0, 0($t1)	
+		
 		# $t0 directorio
 		# $t1 string
 		# $t2 disco duro
@@ -798,15 +846,11 @@ rensalir:	jr $ra
 		# $t5 iterador
 		# $t6 iterador
 		
-buscar:		li   $t6, 0
-		addi $sp, $sp, -4
-		sw   $ra, 4($sp)
-		jal  split
-		lw   $ra, 4($sp)
-		addi $sp, $sp, 4
+		li   $t6, 0
+		
 loopBuscarDir:	la   $t0, directorio
 		li   $t1, 14
-		mult $t1, $t6, 
+		mul  $t1, $t1, $t6 
 		add  $t0, $t0, $t1
 		addi $t0, $t0, 13
 		move $t1, $a0
@@ -814,7 +858,7 @@ loopBuscarDir:	la   $t0, directorio
 
 
 loopBuscarFAT:	la   $t2, discoDuro
-		sll  $t5, $t4, 2
+		sll  $t4, $t4, 2
 		add  $t2, $t2, $t4 
 		li   $t5, 0
 
@@ -828,7 +872,7 @@ loopComparar:   lb   $t4, 0($t2)
 		
 		la  $t0, FAT
 		add $t0, $t0, $t4
-		lb  $t4, 0($t0)
+		lbu $t4, 0($t0)
 		beq $t4, $0, retornarBuscar
 		b loopBuscarFAT
 
@@ -838,11 +882,10 @@ salirLoop:	addi $t6, $t6, 1
 		jr   $ra
 		
 retornarBuscar:	li   $t0, 14
-		mult $t6, $t0
+		mul  $t6, $t0, $t6
 		la   $v0, directorio
 		add  $v0, $v0, $t6
-		jr   $ra
-				
+		jr   $ra				
 		
 		
 
@@ -901,8 +944,9 @@ calculator1:	la $t0, FAT
 		mul $t2, $t1, 4
 		add $t3, $t3, $t2
 		
+		
 		add $t4, $0, $0
-cuentacluster:	lb $t5, 0($t3)	# Cuenta byte a byte las palabras almacenadas en el discoduro
+cuentacluster:	lb $t5, 0($t3)			# Cuenta byte a byte las palabras almacenadas en el discoduro
 		beqz $t5, imprimirsizeof
 		addi $t4, $t4, 1
 		addi $t6, $t6, 1
