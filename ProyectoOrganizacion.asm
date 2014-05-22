@@ -13,13 +13,12 @@ buffer:		.space  60   # Espacio reservado para el buffer del input (Maximo 1 Kb 
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
 
 
-error1:		.asciiz "Error: El Disco esta lleno\n"
+error1:		.asciiz "Error: No hay espacio suficiente\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
 error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
-error4:		.asciiz "Error: Comando invalido\n"
-error5:		.asciiz "Error: No hay espacio suficiente\n"
-error6:		.asciiz "Error: El nombre del archivo es muy largo\n"
-error7:		.asciiz "Error: El nombre al que quieres renombrar ya existe \n"
+error4:		.asciiz "Error: Comando invalido\n"	
+error5:		.asciiz "Error: El nombre del archivo es muy largo\n"
+error6:		.asciiz "Error: El nombre al que quieres renombrar ya existe \n"
 sizeofbytes:	.asciiz "\n Total de bytes: "
 sizeofclusters:	.asciiz "\n Total de clusters: "
 salto:		.asciiz "\n"
@@ -238,13 +237,13 @@ tamanonombre:	lb $t5, 0($t3)		# Verifico si el nombre del archivo no excede los 
 		addi $t3, $t3, 1
 		b tamanonombre
 		
-CError6:	imprime(error6)
+CError5:	imprime(error5)
 		jr $ra
 CError2:	imprime(error2)
 		jr $ra
 		
 cheqnombre:	addi $t5, $t5, 12
-		bgt $t0, $t5, CError6		
+		bgt $t0, $t5, CError5		
 
 
 		add $t3, $0, $0		# Chequeo si existe el nombre en el directorio
@@ -279,7 +278,7 @@ contandopal:	lb $t1, 0($t0)
 		addi $t3, $t3, 1
 		b contandopal
 		
-CError5:	imprime(error5)
+CError1:	imprime(error1)
 		jr $ra
 		 
 espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
@@ -288,7 +287,7 @@ espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		add $t5, $0, $0
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
-		bgt $t3, $t4, CError5
+		bgt $t3, $t4, CError1
 		
 		
 		la $t0, bufferIO
@@ -571,9 +570,9 @@ cheqespacio:	la $t1, FAT			# Verifica si hay espacio suficiente para copiar
 		mul $t1, $t1, 4
 		mul $t0, $t0, -1
 		ble $t0, $t1, llenabufferIO
-		b copiarError5
+		b copiarError1
 		
-copiarError5:	imprime(error5)
+copiarError1:	imprime(error1)
 		jr $ra
 		
 borrarcluster:	div $t0, $t6, 4			# Determina los clusters sobrantes del archivo destino
@@ -757,7 +756,7 @@ cheqdirect1:	la $a0, 0($t0)		# Chequeo si el nombre a renombrar, exista en el di
 		lw $ra, -4($fp)
 		lw $fp, 0($fp)
 		addiu $sp, $sp, 12
-		bgtz $v0, renError7
+		bgtz $v0, renError6
 		addi $t3, $t3, 1
 		addi $t0, $t0, 14
 		blt $t3, $t5, cheqdirect1
@@ -770,13 +769,13 @@ rencuentachar:	lb $t1, 0($t0)
 		addi $t2, $t2, 1
 		b rencuentachar
 		
-renError7:	imprime(error7)
-		jr $ra
-
 renError6:	imprime(error6)
 		jr $ra
+
+renError5:	imprime(error5)
+		jr $ra
 					
-verificanum:	bge $t2, 13, renError6		
+verificanum:	bge $t2, 13, renError5		
 		
 		la $t0, directorio
 		addi $t5, $0, 255
