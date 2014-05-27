@@ -53,14 +53,14 @@ textSalir:	.asciiz "salir"
 		imprime(bienvenida)
 main:		imprime(prompt)
 		
-#		la   $s0, buffer
-#		li   $s1, 0 
-#		move $s2, $0
-#limpiarBuffer:  sb   $s2, 0($s0)
-#		addi $s1, $s1, 1
-#		addi $s0, $s0, 1
-#		beq  $s1, 60, limpiarBuffer
-#
+		la   $s0, buffer
+		li   $s1, 0 
+		move $s2, $0
+limpiarBuffer:  sb   $s2, 0($s0)
+		addi $s1, $s1, 1
+		addi $s0, $s0, 1
+		bne  $s1, 60, limpiarBuffer
+
 		la   $s0, bufferIO
 		li   $s1, 0 
 		move $s2, $0
@@ -250,9 +250,10 @@ cheqnombre:	addi $t5, $t5, 12
 		add $t5, $0, $0
 		addi $t5, $t5, 256
 		la $t0, directorio
-		move $a1, $s1
 		
-cheqdirect:	la $a0, 0($t0) 		
+		
+cheqdirect:	move $a1, $s1
+		la $a0, 0($t0) 		
 		addi $sp, $sp, -12
 		sw $fp, 12($sp)
 		sw $ra, 8($sp)
