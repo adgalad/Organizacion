@@ -12,7 +12,6 @@ buffer:		.space  60   # Espacio reservado para el buffer del input (Maximo 1 Kb 
 .align 2
 bufferIO:	.space	1025 # Espacio reservado para el buffer del IO de archivos
 
-
 error1:		.asciiz "Error: No hay espacio suficiente\n"
 error2:		.asciiz "Error: El Archivo que desea crear ya existe en el Disco\n"
 error3:		.asciiz "Error: El Archivo no existe en el Disco\n"
@@ -23,20 +22,18 @@ sizeofbytes:	.asciiz "\n Total de bytes: "
 sizeofclusters:	.asciiz "\n Total de clusters: "
 salto:		.asciiz "\n"
 NombArchivo:	.asciiz "El nombre del archivo es:" 
-
 bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
 prompt:		.asciiz ">> "
-
 textCrear:	.asciiz "crear"
 textCopiar:	.asciiz "copiar"
 textRenombrar:	.asciiz "ren"
 textSizeOf:	.asciiz "sizeof"
 textImprimir:	.asciiz "imprimir"
 textBuscar:	.asciiz "buscar"
+textDir:	.asciiz "dir"
 textSalir:	.asciiz "salir"	
 	
 	.text
-
 # macro para imprimir un string almacenado en memoria
 .macro imprime(%etiqueta)
 	li $v0 , 4
@@ -52,6 +49,7 @@ textSalir:	.asciiz "salir"
 		
 		imprime(bienvenida)
 main:		imprime(prompt)
+
 		
 		la   $s0, buffer
 		li   $s1, 0 
@@ -61,24 +59,17 @@ limpiarBuffer:  sb   $s2, 0($s0)
 		addi $s0, $s0, 1
 		bne  $s1, 60, limpiarBuffer
 
+
 		la   $s0, bufferIO
 		li   $s1, 0 
 		move $s2, $0
-limpiarBufferIO:sb   $s2, 0($s0)
-		addi $s1, $s1, 1
-		addi $s0, $s0, 1
-		bne  $s1, 1025, limpiarBufferIO
-
-
 
 		jal  input
 		move $a0, $v0
 		
 		jal  split
 		add  $s0, $v0, $0	# $s0  almacena el comando recibido por prompt
-		add  $s1, $v1, $0	# $s1 almacena el argumento recibido por prompt
-	
-		add  $a2, $s1, $0			
+		add  $s1, $v1, $0	# $s1 almacena el argumento recibido por prompt			
 		
 		la   $a1, textCrear
 		move $a0, $s0
@@ -101,36 +92,46 @@ ifCopiar:	la   $a1, textCopiar
 		jal  compararString
 		beqz $v0, ifRen
 		move $a1, $s1 
-		jal copiar
-		b main 
+		jal  copiar
+		b    main 
 		
 ifRen:		la   $a1, textRenombrar
 		move $a0, $s0
 		jal  compararString
 		beqz $v0, ifSizeOf
-		jal ren
-		b main 
+		jal  ren
+		b    main 
 		
-ifSizeOf:	la   $a1, textSizeOf
+ifSizeOf:	la    $a1, textSizeOf
 		move  $a0, $s0
-		jal  compararString
-		beqz $v0, ifBuscar
-		jal sizeof
-		b main 
+		jal   compararString
+		beqz  $v0, ifBuscar
+		li    $a2, 0
+		move  $a0, $s1
+		jal   sizeof
+		b     main 
 
-ifBuscar:	la   $a1, textBuscar
+ifBuscar:	la    $a1, textBuscar
 		move  $a0, $s0
+		jal   compararString
+		beqz  $v0, ifDir
+		move  $a0, $s1
+		jal   buscar
+		move  $s1, $v0
+		imprime(NombArchivo)
+		li    $v0 , 4
+		move  $a0 , $s1
+		syscall
+		move  $v0, $s1
+		b     main 
+
+ifDir:		la   $a1, textDir
+		move $a0, $s0
 		jal  compararString
 		beqz $v0, ifSalir
-		move  $a0, $s1
-		jal buscar
-		move $s1, $v0
-		imprime(NombArchivo)
-		li $v0 , 4
-		move $a0 , $s1
-		syscall
-		move $v0, $s1
-		b main 	
+		jal  dir
+		b    main
+		
 		
 ifSalir:	la   $a1, textSalir
 		move $a0, $s0
@@ -210,38 +211,38 @@ crear:		addi $sp, $sp, -8
 		lw $ra, -4($fp)
 		lw $fp, 0($fp)
 		addiu $sp, $sp, 8
-		
+
 		li   $v0, 13
 		move $a0, $s1
 		li   $a1, 0
 		li   $a2, 0
 		syscall
-		
+
 		move $a0, $v0
 		li   $v0, 14
 		la   $a1, bufferIO
 		li   $a2, 1025
 		syscall
-				
+
 		li $v0, 16
 		syscall
-		
+
 		add $t3, $0, $0
 		add $t5, $0, $0
 		add $t0, $0, $0
 		move $t3, $s1
-		
+
 tamanonombre:	lb $t5, 0($t3)		# Verifico si el nombre del archivo no excede los 12 caracteres
 		beqz $t5, cheqnombre
 		addi $t0, $t0, 1
 		addi $t3, $t3, 1
 		b tamanonombre
-		
+
 CError5:	imprime(error5)
 		jr $ra
 CError2:	imprime(error2)
 		jr $ra
-		
+
 cheqnombre:	addi $t5, $t5, 12
 		bgt $t0, $t5, CError5		
 
@@ -250,10 +251,12 @@ cheqnombre:	addi $t5, $t5, 12
 		add $t5, $0, $0
 		addi $t5, $t5, 256
 		la $t0, directorio
+
 		
 		
 cheqdirect:	move $a1, $s1
 		la $a0, 0($t0) 		
+
 		addi $sp, $sp, -12
 		sw $fp, 12($sp)
 		sw $ra, 8($sp)
@@ -268,20 +271,20 @@ cheqdirect:	move $a1, $s1
 		addi $t0, $t0, 14
 		bgtz $v0, CError2
 		blt $t3, $t5, cheqdirect
-		
-		
+
+
 		add $t3, $0, $0		# Cuento el numero de bytes a guardar
 		la $t0, bufferIO
-		
+
 contandopal:	lb $t1, 0($t0)
 		beqz $t1, espaciolibre
 		addi $t0, $t0, 1
 		addi $t3, $t3, 1
 		b contandopal
-		
+
 CError1:	imprime(error1)
 		jr $ra
-		 
+
 espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		la $t4, FAT
 		lbu  $t4, 0($t4)
@@ -289,8 +292,8 @@ espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		addi $t5, $t5, 4
 		mul $t4, $t4, $t5
 		bgt $t3, $t4, CError1
-		
-		
+
+
 		la $t0, bufferIO
 		la $t4, FAT		# El FAT 0, esta reservado para uso del SMD
 		la $t5, discoDuro		
@@ -298,20 +301,20 @@ espaciolibre:	beqz $t3, salircrear	# Verifico si hay espacio suficiente
 		addi $t4, $t4, 1
 		b clusterlibres
 
-		
+
 clusterlibres1:	move $t9, $t4		# Encuentro Clusters libres para almacenar
 		addi $t4, $t4, 1			
 clusterlibres:	lbu $t1, 0($t4)
 		beqz $t1, clusterlibre
 		addi $t4, $t4, 1	
 		b clusterlibres
-		
+
 clusterlibre:	bnez $t2, marcandofat	# Calculo la biyeccion entre el indice de FAT y el HDD
 clusterlibre1:	la $t6, FAT
 		sub $t6, $t4, $t6
 		mul $t6, $t6, 4
 		add $t6, $t5, $t6
-		
+
 		add $t8, $0, $0		# Guardo 4bytes en un cluster
 guardando:	lb $t7, 0($t0)
 		sb $t7, 0($t6)
@@ -322,19 +325,19 @@ guardando:	lb $t7, 0($t0)
 		beq $t3, $t2, marcandofatf
 		beq $t8, 4, clusterlibres1
 		b guardando
-	
+
 marcandofat:	ble $t2, 4, entradadirect	# Identifico en el cluster de FAT, el proximo cluster de la plabra
 marcandofat1:	la $t6, FAT
 		sub $t6, $t4, $t6
 		sb $t6, 0($t9)
 		b clusterlibre1
-		
+
 entradadirect:	la $t6,	directorio		# Creo la entrada en el directorio
 entradadirect1:	lb $t7, 0($t6)
 		beqz $t7, llenardirect
 		addi $t6, $t6, 14
 		b entradadirect1
-		
+
 llenardirect:	addi $sp, $sp, -4
 		sw $t6, 4($sp)
 		move $t7, $s1
@@ -344,7 +347,7 @@ llenardirect1:	lb $t8, 0($t7)
 		addi $t7,$t7, 1
 		addi $t6, $t6, 1
 		b llenardirect1
-		
+
 llenardirect2:	lw $t7, 4($sp)
 		addi $sp, $sp, 4
 		addi $t7, $t7, 13
@@ -352,8 +355,8 @@ llenardirect2:	lw $t7, 4($sp)
 		sub $t6, $t9, $t6
 		sb $t6, 0($t7)
 		b marcandofat1
-		
-		
+
+
 marcandofatf:	add $t6, $0, 255		# Marco -1 en el cluster en FAT para el ultimo cluster usado.
 		sb $t6, 0($t4)
 		li $t0, 4
@@ -362,12 +365,12 @@ marcandofatf:	add $t6, $0, 255		# Marco -1 en el cluster en FAT para el ultimo c
 		mfhi $t2
 		beqz $t2, descuentlibre
 		addi $t3, $t3, 1
-		
+
 descuentlibre:	la $t2, FAT
 		lbu $t0, 0($t2)
 		sub $t0, $t0, $t3
 		sb $t0, 0($t2)
-				    
+
 salircrear:	jr   $ra
 
 
@@ -382,19 +385,22 @@ imprimir: 	li   $t0, 0
 		# $t1 direccion del directorio
 		# $a0 direccion con nombre del archivo
 		
-loopExisteImp:	addi $sp, $sp, -8
+loopExisteImp:	addi $sp, $sp, -16
 		sw   $ra, 4($sp)
-		sw   $t1, 8($sp)
+		sw   $t0, 8($sp)
+		sw   $t1, 12($sp)
+		sw   $a0, 16($sp)
 		move $a1, $t1
 		jal  split
 		move $a0, $v0
 		jal  compararString
 		lw   $ra, 4($sp)
-		lw   $t1, 8($sp)
-		addi $sp, $sp, 8
+		lw   $t0, 8($sp)
+		lw   $t1, 12($sp)
+		lw   $a0, 16($sp)
+		addi $sp, $sp, 16
 		beq  $v0, 1 , existeImpri
 		beq  $t0, 255, noExisteImpri
-		la   $t1, directorio
 		addi $t1, $t1, 14			# flag
 		addi $t0, $t0, 1
 		b loopExisteImp
@@ -429,6 +435,7 @@ loopImpri:	la   $t2 discoDuro
 		b loopImpri
 
 salirImpri:	imprime(bufferIO)
+		imprime(salto)
 		jr $ra		
 
 noExisteImpri:  imprime(error3)
@@ -677,44 +684,7 @@ cluslibre1:	lw $t3, 0($sp)
 		
 
 salircopiar:	jr $ra
-		
-
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		 
-		
-
-		
-				
-	
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+			
 
 
 # Entrada: 
@@ -893,8 +863,7 @@ retornarBuscar:	li   $t0, 14
 #Entrada: $s1 ( nombre del archivo )
 #Salida:   ( Unidades de cluster ) y ( Unidades de Bytes ) 
 
-sizeof:		move $t9, $s1		# Elimino el salto de linea al final del argumento
-		move $a0, $t9
+sizeof:		move $t9, $a0		# Elimino el salto de linea al final del argumento
 		addi $sp, $sp, -8
 		sw $fp, 8($sp)
 		sw $ra, 4($sp)
@@ -903,7 +872,6 @@ sizeof:		move $t9, $s1		# Elimino el salto de linea al final del argumento
 		lw $ra, -4($fp)
 		lw $fp, 0($fp)
 		addiu $sp, $sp, 8
-		
 		
 		add $t0, $0, $0		# Chequeo si el archivo existe
 		la $t1, directorio
@@ -970,7 +938,8 @@ imprimirsizeof:	li $v0, 4
 		beqz $t0, impcluster
 		addi $t6, $t6, 1
 		
-impcluster:	li $v0, 4
+impcluster:	beq $a2, 1, sizeofsalir
+		li $v0, 4
 		la $a0, sizeofclusters
 		syscall
 		
@@ -988,13 +957,36 @@ sizeofsalir:	jr $ra
 
 		
 		
+dir:		li   $t0, 0
+		la   $t1, directorio
+		move $t2, $a0
+		
+loopDir:	lb   $a0, 0($t1)
+		beqz $a0, siguiente
+		la   $a0, 0($t1)
+		li   $v0, 4
+		syscall	
+		addi $sp, $sp, -12
+		sw   $t0, 4($sp)	
+		sw   $t1, 8($sp)
+		sw   $ra, 12($sp)
+		li   $a2, 1
+		jal  sizeof
+		lw   $t0, 4($sp)	
+		lw   $t1, 8($sp)
+		lw   $ra, 12($sp)
+		addi $sp, $sp, 12
+		imprime(salto)
+		imprime (salto)
+		
+siguiente:	addi $t1, $t1, 14
+		addi $t0, $t0, 1
+		beq  $t0, 255, salir
+		b loopDir
+		
+salir:		jr $ra	
 		
 		
 		
-		
-		
-		
-		
-
 
 
