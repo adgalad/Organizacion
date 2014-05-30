@@ -950,8 +950,8 @@ impcluster:	beq $a2, 1, sizeofsalir
 sizeofsalir:	jr $ra
 		
 
-Entrada: nada
-Salida: nada
+#Entrada: nada
+#Salida: nada
 		
 dir:		li   $t0, 0
 		la   $t1, directorio
