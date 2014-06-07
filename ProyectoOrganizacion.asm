@@ -22,7 +22,7 @@ sizeofbytes:	.asciiz "\n Total de bytes: "
 sizeofclusters:	.asciiz "\n Total de clusters: "
 salto:		.asciiz "\n"
 NombArchivo:	.asciiz "El nombre del archivo es:" 
-bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n"
+bienvenida:	.asciiz "   Sistema Manejador de Disco Duro (SMD)\n   Introduzca el comando \"salir\" para abortar el programa \n"
 prompt:		.asciiz ">> "
 textCrear:	.asciiz "crear"
 textCopiar:	.asciiz "copiar"
@@ -99,6 +99,7 @@ ifRen:		la   $a1, textRenombrar
 		move $a0, $s0
 		jal  compararString
 		beqz $v0, ifSizeOf
+		move $a0, $s1
 		jal  ren
 		b    main 
 		
@@ -196,11 +197,6 @@ salirInput:	add  $t0, $0, $0
 
 # Entrada: $a0 ( direccion con el nombre del archivo )
 # Salida:  nada
-
-# Comandos
-
-# Entrada:
-# Salida:	
 
 crear:		addi $sp, $sp, -8
 		sw $fp, 8($sp)
@@ -444,9 +440,9 @@ noExisteImpri:  imprime(error3)
 
 
 
-# Entrada: $a1 ( archivo fuente y archivo destino )
+# Entrada: $a0 ( archivo fuente ) $a1 (archivo destino )
 # Salida: 
-copiar:		move $a0, $a1		# Divide los dos nombres de archivo en s1
+copiar:		move $a0, $a1		
 		addi $sp, $sp, -8
 		sw $fp, 8($sp)
 		sw $ra, 4($sp)
@@ -687,10 +683,9 @@ salircopiar:	jr $ra
 			
 
 
-# Entrada: 
-# Salida: 
-ren:		move $a0, $s1		# Divide los dos nombres de archivo en s1
-		addi $sp, $sp, -8
+# Entrada: $a0 (nombre del archivo a renombrar) $a1 (nuevo nombre del archivo
+# Salida: nada
+ren:		addi $sp, $sp, -8
 		sw $fp, 8($sp)
 		sw $ra, 4($sp)
 		addi $fp, $sp, 8
@@ -860,8 +855,8 @@ retornarBuscar:	li   $t0, 14
 		
 
 
-#Entrada: $s1 ( nombre del archivo )
-#Salida:   ( Unidades de cluster ) y ( Unidades de Bytes ) 
+#Entrada: $a0 ( nombre del archivo )
+#Salida:  nada
 
 sizeof:		move $t9, $a0		# Elimino el salto de linea al final del argumento
 		addi $sp, $sp, -8
@@ -955,7 +950,8 @@ impcluster:	beq $a2, 1, sizeofsalir
 sizeofsalir:	jr $ra
 		
 
-		
+#Entrada: nada
+#Salida: nada
 		
 dir:		li   $t0, 0
 		la   $t1, directorio
