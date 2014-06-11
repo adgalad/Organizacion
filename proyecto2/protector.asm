@@ -13,11 +13,9 @@ display_d:	.word	0xffff000c
 	
 	.globl LockFlag 
 	
-main: 		li		$t0,	1
-			sw 		$t0,	LockFlag
-				    
-    		#li		$v0,	100
-			#syscall
+main: 		li		$v0,	100
+			syscall
+			li		$v0,	0
 continua:	lw		$s0,	LockFlag
 			beqz	$s0,	correcto
             la 		$a0,	bloqueado
@@ -38,12 +36,15 @@ loopd:		lw		$t2,	0($t1)
 			andi	$t2,	$t2,	0x1
 			beqz	$t2,	loopd
 			lb		$t4,	0($t3)
+			seq		$s0,	$0,		$t4
 			beqz	$t4,	salir
 			sw		$t4,	0($t0)
 			addi 	$t3,	$t3,	1
 			b 		loopd
 			
-salir:		jr	$ra	
+salir:		nop
+			bnez	$s0,	salir
+			jr		$ra
 			
 
 			

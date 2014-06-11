@@ -140,6 +140,7 @@ s2:	.word 0
 
 	sw $v0, s1               # Not re-entrant and we can't trust $sp
 	sw $a0, s2               # But we need to use these registers
+	
 
 
 #####################################################
