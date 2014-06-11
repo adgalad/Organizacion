@@ -47,7 +47,7 @@ InputBuffer:	.space	10			# Donde se almacena el password recibido
 				.align	2
 BufferSize:		.word	10			# Tamano maximo del buffer de entrada, expresado en bytes
 				.align 	2
-Password:		.asciiz	"holavale\n"	# Clave que desbloquea el computador
+Password:		.asciiz	"holavale"	# Clave que desbloquea el computador
 				.align	2
 InputSize:		.word 	0			# Contiene la tamano real del InputBuffer
 				.align	2
@@ -106,25 +106,26 @@ ini:
 
 # Funcion que compara dos string, que entran como argumentos a0,a1 
 # devuelve en v0, true o false en caso de ser iguales o no
-compararString: lb   $t0, 0($a0)
-				lb   $t1, 0($a1)
-				bne  $t0, $t1, noIguales
-				beqz $t0, iguales
-				addi $a0, $a0, 1
-				addi $a1, $a1, 1
-				b    compararString
+compararString: lb   	$t0, 	0($a0)
+				lb 		$t1, 	0($a1)
+				bne  	$t0, 	$t1, 	noIguales
+				beqz 	$t0, 	iguales
+				addi 	$a0, 	$a0, 	1
+				addi 	$a1, 	$a1, 	1
+				b    	compararString
 		
-iguales:		li   $v0, 0
-				jr   $ra
+iguales:		li   	$v0, 	0
+				jr   	$ra
 		
-noIguales:		li   $v0, 1
-				jr   $ra
+noIguales:		li   	$v0, 	1
+				jr   	$ra
 		
 #####################################################
-		
+# Interrupciones de teclado 		
 		
 inter:	lw 		$t0, 	teclado_d
 		lb 		$t1, 	0($t0)
+		beq		$t1,	10,		cheq		# El caracter introducido es un salto de linea
 		lw		$t2,	BufferPtr
 		sb		$t1,	0($t2)				# Guardo la tecla presionada en el InputBuffer
 		lw		$t3,	InputSize
@@ -133,22 +134,40 @@ inter:	lw 		$t0, 	teclado_d
 		addi 	$t2,	$t2,	0x1			
 		sw		$t2,	BufferPtr			# BufferPtr apunta a la siguiente direccion
 		
-		beq		$t1,	10,		cheq		# El caracter introducido es un salto de linea
-		beq		$t3,	10,		cheq		# Ya se llego al limite de caracteres introducidos
+		lw		$t0,	BufferSize
+		beq		$t3,	$t0,		cheq		# Ya se llego al limite de caracteres introducidos 
 		
 		eret
 		
-cheq:	li		$s0,	0
+cheq:	lw		$t0,	teclado_c
+		lw		$t1,	0($t0)
+		andi	$t1,	0xfffffffd			# Deshabilito las interrupciones de teclado 
+		sw		$t1,	0($t0)
+		li		$s0,	0
 		la		$a0,	InputBuffer
 		la		$a1,	Password
-		jal 	compararString
+		jal 	compararString				# Funcion que compara la clave introducida con la real
 		lw		$ra,	s3
-		sb		$v0,	LockFlag					
+		sb		$v0,	LockFlag
+		
+
 		
 		
+		la		$t0,	InputBuffer
+		li		$t1,	0
+limp:	sb		$0,		0($t0)				# Limpio El InputBuffer
+		addi 	$t0,	$t0,	1
+		addi	$t1,	$t1,	1	
+		bne		$t1,	10,		limp
+		la		$t0,	InputBuffer
+		sw		$t0		BufferPtr			# BufferPtr apunta ahora a InputBuffer
+		sw		$0,		InputSize			# InputSize	se reinicia, poniendose en 0
 		
-		
-		
+		lw		$t0,	teclado_c
+		lw		$t1,	0($t0)
+		ori		$t1,	0x2					# habilito las interrupciones de teclado
+		sw		$t1,	0($t0)
+							
 		eret
 	
 
